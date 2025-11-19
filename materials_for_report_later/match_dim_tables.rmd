@@ -1,0 +1,73 @@
+# Raw Data to Database Schema Mapping
+
+## 1. Traffic Data Transformation
+
+### TrafficMeasurement (Fact Table)
+| Raw Column Name       | New Column Name       | Data Type | Notes                                    |
+|-----------------------|-----------------------|-----------|------------------------------------------|
+| measurement_site_id   | measurement_id        | int       | Primary key (auto-generated)             |
+| timestamp             | timestamp             | datetime  | Measurement timestamp                    |
+| vehicle_count         | vehicle_count         | int       | Core measurement value                   |
+| vehicle_count_status  | vehicle_count_status  | varchar   | Status: Measured/Missing/Imputed         |
+| measurement_site_id   | measurement_site_id   | varchar   | Foreign key to MeasurementSite           |
+
+### MeasurementSite (Dimension Table)
+| Raw Column Name       | New Column Name       | Data Type | Notes                                    |
+|-----------------------|-----------------------|-----------|------------------------------------------|
+| measurement_site_id   | measurement_site_id   | varchar   | Primary key                              |
+| measurement_site_name | measurement_site_name | varchar   | Site name (often "Unknown")              |
+| direction             | direction             | varchar   | Traffic direction (inbound/outbound)     |
+| position_description  | position_description  | varchar   | Position context                         |
+| num_detectors         | num_detectors         | int       | Number of detectors at site              |
+| counting_site_id      | counting_site_id      | varchar   | Foreign key to CountingSite              |
+
+### CountingSite (Dimension Table)
+| Raw Column Name       | New Column Name       | Data Type | Notes                                    |
+|-----------------------|-----------------------|-----------|------------------------------------------|
+| counting_site_id      | counting_site_id      | varchar   | Primary key                              |
+| counting_site_name    | counting_site_name    | varchar   | Human-readable location name             |
+| east_coordinate       | east_coordinate       | float     | CH1903+ east coordinate                  |
+| north_coordinate      | north_coordinate      | float     | CH1903+ north coordinate                 |
+| signal_id             | signal_id             | varchar   | Foreign key to TrafficSignal (optional)  |
+
+### TrafficSignal (Dimension Table)
+| Raw Column Name       | New Column Name       | Data Type | Notes                                    |
+|-----------------------|-----------------------|-----------|------------------------------------------|
+| signal_id             | signal_id             | varchar   | Primary key                              |
+| signal_name           | signal_name           | varchar   | Traffic signal/controller name           |
+
+---
+
+## 2. Geography/Street Data Transformation
+
+### Street (Dimension Table)
+| Raw Column Name (DE)  | Raw Column Name (EN)  | New Column Name       | Data Type | Notes                                    |
+|-----------------------|-----------------------|-----------------------|-----------|------------------------------------------|
+| (derived)             | (derived)             | street_id             | int       | Primary key (auto-generated)             |
+| lokalisationsname     | street name           | street_name           | varchar   | Unique street name                       |
+
+### CityDistrict (Dimension Table)
+| Raw Column Name (DE)  | Raw Column Name (EN)  | New Column Name       | Data Type | Notes                                    |
+|-----------------------|-----------------------|-----------------------|-----------|------------------------------------------|
+| (derived)             | (derived)             | district_id           | int       | Primary key (auto-generated)             |
+| statistisches_quartier| statistical quarter   | district_name         | varchar   | Statistical quarter name                 |
+
+### StreetDistrictMapping (Junction Table - M:N)
+| Raw Column Name (DE)  | Raw Column Name (EN)  | New Column Name       | Data Type | Notes                                    |
+|-----------------------|-----------------------|-----------------------|-----------|------------------------------------------|
+| (derived)             | (derived)             | mapping_id            | int       | Primary key (auto-generated)             |
+| (derived from street) | (derived from street) | street_id             | int       | Foreign key to Street                    |
+| (derived from district)| (derived from district)| district_id          | int       | Foreign key to CityDistrict              |
+
+### CountingSiteStreetMapping (Junction Table - M:N)
+| Raw Column Name (DE)  | Raw Column Name (EN)  | New Column Name       | Data Type | Notes                                    |
+|-----------------------|-----------------------|-----------------------|-----------|------------------------------------------|
+| (derived)             | (derived)             | mapping_id            | int       | Primary key (auto-generated)             |
+| counting_site_id      | counting_site_id      | counting_site_id      | varchar   | Foreign key to CountingSite              |
+| (derived from street) | (derived from street) | street_id             | int       | Foreign key to Street                    |
+| (derived)             | (derived)             | confidence_score      | float     | Mapping confidence (if applicable)       |
+
+---
+
+## 3. Population Data Transformation (Nto be added)
+
