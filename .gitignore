@@ -1,0 +1,27 @@
+# macOS artifacts
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python cache/temp files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.env/
+.venv/
+venv/
+
+# IDE/editor configs
+.vscode/
+.idea/
+*.swp
+
+# Data files (large/raw datasets kept outside git)
+data/
+
+# Logs & temp outputs
+logs/
+*.log
+*.tmp
