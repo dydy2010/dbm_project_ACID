@@ -9,6 +9,7 @@ output:
     number_sections: true
 fontsize: 11pt
 geometry: margin=1in
+knit: rmarkdown::render
 ---
 
 ```{r setup, include=FALSE}
@@ -138,3 +139,20 @@ All fields describing the measurement location (counting site, signal name, coor
 # Visualization & Decision Support
 
 # Conclusions & Lessons Learned
+
+# How to render this report
+
+A single R command will render the file. In an R console run:
+`rmarkdown::render("report.Rmd")`
+Make sure your R working directory is the report folder (or use the full path). For PDF output you need a LaTeX engine (e.g. TinyTeX).
+
+```{r render_examples, eval=FALSE}
+# In R (interactive)
+rmarkdown::render("report.Rmd", output_format = "pdf_document")
+
+# From a shell/CI
+# Rscript -e 'rmarkdown::render("report.Rmd")'
+
+# If you need LaTeX for PDF and don't have it installed:
+# install.packages("tinytex"); tinytex::install_tinytex()
+```
