@@ -25,7 +25,7 @@
 | Raw Column Name       | New Column Name       | Data Type | Notes                                    |
 |-----------------------|-----------------------|-----------|------------------------------------------|
 | counting_site_id      | counting_site_id      | varchar   | Primary key                              |
-| counting_site_name    | counting_site_name    | varchar   | Human-readable location name             |
+| counting_site_name    | counting_site_name    | varchar   | Seestrasse (Strandbad Wollishofen)              |
 | east_coordinate       | east_coordinate       | float     | CH1903+ east coordinate                  |
 | north_coordinate      | north_coordinate      | float     | CH1903+ north coordinate                 |
 | signal_id             | signal_id             | varchar   | Foreign key to TrafficSignal (optional)  |
