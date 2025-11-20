@@ -225,6 +225,63 @@ To prepare the dataset for integration and analysis, several cleaning and normal
 - **statistical_quarter**: Statistical quarter (“Statistisches Quartier”), harmonised to match the Quarter dataset.
 - **population_count**: Number of residents in the demographic segment.
 
+## Entity–Relationship Model
+
+The cleaned and harmonised datasets were integrated into a relational data model that reflects the structure of Zurich’s traffic measurement infrastructure, its geographic units, and the associated demographic information. The final model was created in *dbdiagram.io* and is shown in the figure below.
+
+```{r erd, echo=FALSE, out.width="100%", fig.cap="Entity–Relationship Diagram of the integrated Traffic–Quarter–Population model."}
+knitr::include_graphics("materials_for_report_later/erd_traffic.png")
+```
+
+### Overview
+
+The model is centred around the **traffic measurement process**, which is represented by three core entities:
+
+- **CountingSite**  
+  Represents a physical traffic counting location (e.g., a road segment or intersection). It stores geographic coordinates, the human-readable location name, and the traffic axis.
+
+- **MeasurementSite**  
+  Represents a directional or lane-specific measurement point located within a counting site. Each measurement site records traffic in a single direction and may contain multiple detectors.
+
+- **TrafficMeasurement**  
+  Stores the hourly measured vehicle counts, including measurement status and timestamp.
+
+These three entities form a clear 1:n:n hierarchy:  
+**CountingSite → MeasurementSite → TrafficMeasurement**.
+
+### Traffic Signal Dimension
+
+Some counting sites are associated with a traffic signal or intersection controller. This metadata is normalised into the **TrafficSignal** table. Since not every counting site is linked to a signal, the relationship is **optional**.
+
+### Geographic Dimension: Quarter
+
+The **Quarter** table provides spatial context by assigning each cleaned street and address to:
+
+- a **city district** (1–12), and
+- a **statistical quarter** (fine-grained geographic unit).
+
+Counting sites may refer to road infrastructure that is not part of the standard quarter dataset (e.g., motorway segments, tunnels, bridges). Therefore, the relationship between **CountingSite** and **Quarter** is modelled as **optional (0–1)**.
+
+### Demographic Dimension: Population
+
+The **Population** table contains demographic counts by sex, origin, and year, referenced at both district and statistical-quarter level. To normalise categorical attributes, the model includes two lookup tables:
+
+- **Sex** (sex_code → sex)
+- **Origin** (origin_code → origin)
+
+Every population record references a sex and origin category (mandatory), while the link to a statistical quarter is **optional**. This reflects the presence of entries such as *“Unbekannt (Stadt Zürich)”*, which cannot be assigned to a specific spatial unit.
+
+### Optional Relationships (`--0--<`)
+
+Several foreign-key relationships are intentionally optional to reflect real characteristics of the source data:
+
+- Some counting sites lie outside the quarter system.
+- Some population entries cannot be mapped to a statistical quarter.
+- Not all counting sites are linked to a traffic signal.
+
+By modelling these relationships as optional, the ERD mirrors the true structure and limitations of the underlying open data and avoids enforcing artificial or incorrect mappings.
+
+
 # Loading & Transforming the Data
 
 # Analyzing & Evaluating Data
