@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = FALSE)
 **DBM, HS 2025**  
 **Traffic Flow Analysis for Urban Planning in Zurich**  
 **Team:** ACID  
-**Authors:** <Author 1>, <Author 2>, <Author 3>, <Author 4>  
+**Authors:** Ramiro Díez-Liébana, Valeska Blank, Dongyuan Gao, Cyriel Van Helleputte  
 **Date:** <Date>
 
 # Introduction & Context (Proposal)
@@ -78,11 +78,11 @@ A weekday-to-weekend ratio above 1.4 indicates commuter-dominated traffic, where
 
 ## Data Preprocessing & Preparation
 
-- Hourly traffic count data from the City of Zurich’s open data portal was collected.
-- The raw dataset consisted of multiple yearly CSV files (2012–2025), all sharing an identical schema.
-- All CSV files were loaded with Python using the Pandas library and combined into a single unified data frame, resulting in a consistent dataset spanning the entire time period.
+- Hourly traffic count data, address data (inkluding city district and quarter) and population data from the City of Zurich’s open data portal was collected.
+- The raw datasets consisted of multiple CSV files (2012–2025).
+- All CSV files were loaded with Python using the Pandas library.
 
-### Raw Dataset Columns
+### Raw Dataset Columns: Traffic Data
 
 - MSID
 - MSName
@@ -107,18 +107,19 @@ Because the raw dataset included a mixture of analytical attributes and highly t
 
 ### Removed Fields
 
-- **Achse** and **HNr**, due to inconsistent content and redundancy with other location information.
+- **HNr**, due to inconsistent content.
 - **D1ID–D4ID**, as these detector identifiers are technical metadata without analytical value.
 - **LieferDat**, which is a delivery timestamp not required for traffic analysis.
 
-All fields describing the measurement location (counting site, signal name, coordinates), the measurement configuration (measurement site, direction), and the traffic counts themselves were retained. To improve clarity and support further processing and database integration, the remaining column names were translated into English equivalents. In a further preprocessing step, several categorical values contained in German were translated to English. After all preprocessing steps were completed, the resulting cleaned dataset contained 21,721,493 rows and 14 columns.
+All fields describing the measurement location, the measurement configuration, and the traffic counts themselves were retained. To improve clarity and support further processing and database integration, the remaining column names were translated into English equivalents. In a further preprocessing step, several categorical values contained in German were translated to English. After all preprocessing steps were completed, the resulting cleaned dataset contained 21,721,493 rows and 14 columns.
 
 ### Cleaned Dataset Columns
 
 - **measurement_site_id**: Unique technical identifier of the measurement site. A measurement site represents a specific traffic-flow direction or lane at a counting location.
 - **measurement_site_name**: Technical name of the measurement site. In this dataset, this field contains "Unknown" for all entries.
 - **counting_site_id**: Identifier of the counting site, representing the physical location where traffic measurements are collected.
-- **counting_site_name**: Human-readable name of the counting site, describing the location (e.g., street).
+- **counting_site_name**: Human-readable name of the counting site, describing the location (street).
+- **axis**: Categorization of the counting site into a traffic axis (street).
 - **position_description**: A textual descriptor indicating where along the street segment the measurement site is located. Contains "Unknown" for many entries.
 - **east_coordinate**: The east coordinate of the measurement site in the Swiss CH1903+ / LV95 reference system.
 - **north_coordinate**: The north coordinate of the measurement site in the Swiss CH1903+ / LV95 reference system.
@@ -129,6 +130,100 @@ All fields describing the measurement location (counting site, signal name, coor
 - **timestamp**: The timestamp indicating the start of the hourly measurement interval (ISO-8601 format).
 - **vehicle_count**: The number of vehicles recorded during the hourly measurement interval.
 - **vehicle_count_status**: Indicates how the vehicle count was produced: "Measured", "Missing", or "Imputed".
+
+### Raw Dataset Columns: Quarters
+
+The raw quarter dataset contained address-level information used by the City of Zurich for administrative and statistical purposes. The fields included:
+
+- adresse
+- anzahl_fla_projektiert
+- anzahl_fla_real
+- flaeche_projektiert
+- flaeche_real
+- flaeche_total
+- gwr_egid
+- hausnummer
+- lokalisationsname
+- objectid
+- stadtkreis
+- statistisches_quartier
+
+#### Cleaning and Transformation
+
+To link traffic data with geographic units, the raw fields required several preprocessing steps:
+
+- **Address splitting and cleaning**  
+  Street names and house numbers were embedded in a single free-text field (e.g., `"Heinrich-Federer-Strasse 12A"`, `"Widmerstrasse 88"`, `"Seeblickstrasse 17d"`).  
+  Using regular expressions, house numbers (including suffixes such as `12b`, `17d`) were removed, leaving a clean street-level identifier.
+
+- **Data-type normalisation**  
+  `city_district` was converted to a nullable integer type, and `statistical_quarter` was normalised as a trimmed string. Inconsistent labels such as `"Schwamend.-Mitte"` were harmonised to `"Schwamendingen-Mitte"` to ensure joinability with the population dataset.
+  
+#### Additional Standardisation for Street Name Matching
+
+To ensure that traffic measurement locations could be linked reliably to the quarter dataset, several street names from the traffic dataset required manual standardisation. While most addresses were harmonised through regex-based cleaning, a small number of street names contained compound forms that could not be resolved automatically (e.g., combined street names, hyphenated patterns, or slash-separated names). These were corrected manually to create a consistent set of street identifiers.
+
+Examples of manual mappings include:
+
+- `Sood-/Leimbachstrasse` → `Soodstrasse`
+- `Tobelhof-/Dreiwiesenstrasse` → `Tobelhofstrasse`
+- `Manessestrasse - Schimmelstrasse` → `Manessestrasse`
+- `Angererstrasse Tunnelstrasse` → `Angererstrasse`
+
+Additionally, several counting site names referred to non-street features such as bridges, tunnels or motorway segments (e.g., *Quaibrücke*, *Milchbucktunnel*, *A1L*). For these cases, the closest corresponding street-level name from the quarter dataset was identified manually.
+
+These manual adjustments were essential to achieve a fully joinable set of street names between the traffic and quarter datasets and ensured that all counting sites could be assigned to a statistical quarter.
+
+#### Cleaned Quarter Dataset Columns
+
+- **address**: Original full address as provided in the raw data.
+- **house_number**: Extracted house number component (kept for completeness).
+- **street_name**: Cleaned and standardised street name used as the spatial key.
+- **city_district**: Official Zurich district number (1–12).
+- **statistical_quarter**: Statistical quarter (“Statistisches Quartier”) providing fine-grained spatial units.
+
+The cleaned quarter dataset provides the geographic reference layer used to integrate traffic measurements with demographic information.
+
+### Raw Dataset Columns: Population
+
+The raw population dataset consisted of quarterly demographic counts published by the City of Zurich. The original fields included:
+
+- **StichtagDatJahr**: Year of the reference date.
+- **StichtagDatMM**: Month of the reference date (numeric).
+- **StichtagDatMonat**: Month of the reference date (German label).
+- **StichtagDat**: Full reference date (e.g., "1998-03-31"), indicating quarterly population snapshots.
+- **SexCd** / **SexLang**: Numeric code and German label representing the sex category.
+- **AlterV20ueber80Sort_noDM**, **AlterV20ueber80Cd_noDM**, **AlterV20ueber80Kurz_noDM**: Age-group fields (not relevant for this project).
+- **HerkunftCd** / **HerkunftLang**: Numeric code and German label representing population origin.
+- **KreisCd** / **KreisLang**: District number and district name.
+- **QuarCd** / **QuarLang**: Statistical quarter code and label.
+- **DatenstandCd**, **DatenstandLang**: Metadata describing the publication state.
+- **AnzBestWir**: Population count.
+
+#### Cleaning and Transformation
+
+To prepare the dataset for integration and analysis, several cleaning and normalisation steps were performed:
+
+- **Column reduction**  
+  Multiple date-related fields were redundant. `StichtagDatJahr` was retained and renamed to `reference_date_year`.
+- Age-group columns and metadata fields were removed.
+- **Category translation and code preservation**  
+  German labels for sex and origin (e.g., `"männlich"`, `"weiblich"`, `"Schweizer*in"`, `"Ausländer*in"`) were translated to English.  
+  The numeric codes (`SexCd`, `HerkunftCd`) were preserved and renamed to `sex_code` and `origin_code`, as these form stable keys for later relational integration.
+- **Data-type normalisation**  
+  - `KreisCd` was converted from float to nullable integer and renamed to `city_district`.
+  - `QuarLang` was cleaned and normalised (whitespace trimming, harmonisation of abbreviations), then renamed to `statistical_quarter`.
+
+#### Cleaned Population Dataset Columns
+
+- **reference_date_year**: Year of the population count, extracted from the quarterly reference date.
+- **sex_code**: Numeric code representing the sex category.
+- **sex**: Human-readable sex label derived from `sex_code`, such as "male", "female", or "unknown".
+- **origin_code**: Numeric code representing the origin category.
+- **origin**: Human-readable origin label derived from `origin_code`, such as "Swiss" or "Foreign".
+- **city_district**: Zurich district number (1–12).
+- **statistical_quarter**: Statistical quarter (“Statistisches Quartier”), harmonised to match the Quarter dataset.
+- **population_count**: Number of residents in the demographic segment.
 
 # Loading & Transforming the Data
 
