@@ -16,13 +16,13 @@
 - Note that this builds on the KPI framework (peak load, imbalance, temporal trends) defined earlier.
 
 ## Slide 4 – Raw Data Landscape
-- Present the three sources: hourly traffic counts, quarterly population tables, and the geo-address bridge.
-- Highlight the scale (21M+ cleaned traffic rows) and different time grains we reconciled.
-- Stress that the geo-address file lets us translate street measurements into districts/quarters for demographic joins.
+- Present the three sources: hourly traffic counts, city quarter/district population tables, and the geo-address bridge.
+- Highlight the scale (21M+ cleaned traffic rows).
+- Stress that the geo-address file lets us translate street measurements into districts/quarters for demographic joins. which we talk about in detail in next page.
 
 ## Slide 5 – Solving the Missing Link
-- Traffic data lacked quarter names, blocking joins with population data.
-- The str_stadtquartier mapping adds quarter_name after regex cleaning and manual harmonization of tricky street names.
+- Traffic data lacked quarter names, only street address, blocking joins with population data.
+- The str_stadtquartier mapping adds quarter_name afnter regex cleaning and manual harmonization of tricky street names.
 - Once quarter names were injected, every traffic record could inherit demographic context.
 
 ## Slide 6 – Conceptual Data Model
