@@ -1,6 +1,7 @@
 ---
 title: "Database Project Report"
-author: "Urban Planning Analysis Team"
+subtitle: "Traffic Flow Analysis for Urban Planning in Zurich | Team ACID"
+author: "Ramiro Díez-Liébana, Valeska Blank, Dongyuan Gao, Cyriel Van Helleputte"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
   pdf_document:
@@ -15,16 +16,7 @@ knit: rmarkdown::render
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 ```
-
-# Cover Page
-
-**Database Project Report**  
-**DBM, HS 2025**  
-**Traffic Flow Analysis for Urban Planning in Zurich**  
-**Team:** ACID  
-**Authors:** Ramiro Díez-Liébana, Valeska Blank, Dongyuan Gao, Cyriel Van Helleputte  
-**Date:** <Date>
-
+\newpage
 # Introduction & Context (Proposal)
 
 The City of Zurich faces growing challenges related to traffic congestion, mobility planning, and urban development. As the population increases and commuting patterns evolve, many intersections and arterial roads experience significant pressure, particularly during peak hours. Congestion affects not only travel times but also road safety, air quality, and the overall effectiveness of the city’s transport network.
@@ -39,40 +31,89 @@ To support Zurich’s urban planners in addressing congestion and mobility chall
 
 # Key Performance Indicators (KPIs)
 
-A set of KPIs is derived from the cleaned dataset to quantify traffic behavior across Zurich’s intersections. These indicators are designed to highlight temporal and spatial traffic patterns, prioritize areas of concern, and offer measurable signals for potential interventions. Relevant KPIs include:
+The KPI suite was first developed collaboratively by the team to ensure that every indicator directly supports the Zurich urban-planning use case. The procedure followed three steps: (1) define the analytical questions for districts and counting sites, (2) design SQL-ready calculations and classification thresholds, and (3) allow minor adjustments later in the project as additional data nuances emerged. This predefined framework now guides all downstream analytics and remains stable unless new evidence requires a targeted refinement.
 
-| KPI | Description | Possible Calculation |
-| --- | --- | --- |
-| Average hourly traffic volume per intersection and direction | Shows typical load and recurring high-traffic hours. | Group by intersection, direction, and hour of day; compute average hourly volume. |
-| Daily and weekly traffic volume | Indicates overall traffic pressure at a location. | Sum hourly volumes per day or per week. |
-| Peak-hour traffic index | Identifies the hour with the highest recurring traffic. | Calculate average volume per hour of day; select highest. |
-| Directional imbalance | Reveals asymmetry between opposing traffic flows. | Aggregate inbound and outbound volumes; compute ratio. |
-| Year-over-year traffic trend | Detects long-term increases or decreases. | Compare annual totals or averages across years. |
-| Weekday vs. weekend traffic pattern | Distinguishes commuter-driven from leisure-driven traffic. | Compare average weekday and weekend volumes; compute ratio. |
+## KPI 1: District-Level Stress Index
 
-# Decision Rules for Supporting the Use Case
+**Purpose.** Compare traffic volume growth with population growth for each district to detect commuter hubs and residential pressure zones.
 
-To ensure that the KPIs effectively support decision-making, threshold-based decision rules are defined. These rules indicate when a traffic location should be flagged for further analysis or planning action.
+**KPI 1.1 – Aggregate Population by District & Year.** Join `Population` with `Quarter` and sum `population_count` per `city_district` for 2012 vs. 2025 (standard `SELECT city_district, SUM(population_count)` grouped by district and year).
 
-## Bottleneck Identification
+**KPI 1.2 – Aggregate Traffic Volume by District & Year.** Use the `TrafficMeasurement → MeasurementSite → CountingSite → Quarter` join path to sum measured hourly `vehicle_count` per district for 2012 and 2025 (group by `city_district` and `YEAR(timestamp)`).
 
-Locations are considered bottlenecks if peak-hour traffic exceeds around 1,000 vehicles per hour or is more than 150% above the average hourly volume. Sustained peak loads above 800 vehicles per hour signal elevated pressure and may justify signal optimization or design adjustments.
+**KPI 1.3 – Calculate Growth Rates.**
 
-## Intersection Prioritization
+- Population Growth (%) = ((Pop_2025 - Pop_2012) / Pop_2012) × 100
+- Traffic Growth (%) = ((Traffic_2025 - Traffic_2012) / Traffic_2012) × 100
 
-Intersections are prioritized if they frequently fall within the top 10% of busiest sites, or if daily volumes regularly exceed approximately 20,000 vehicles. Such locations show consistently high demand and warrant strategic planning attention.
+**KPI 1.4 – Stress Index.** `Stress Index = Traffic Growth % - Population Growth %`
 
-## Directional Imbalance Response
+Interpretation: positive values highlight commuter hubs; negative values show residential pressure; near zero indicates balanced growth.
 
-If inbound/outbound traffic ratios exceed 1.5, a notable imbalance is present; ratios above 2.0 represent strong directional dominance. These cases may require directional signal adjustments, lane reallocations, or targeted peak-hour measures.
+**KPI 1.5 – Classification.**
 
-## Trend-Based Planning
+- Stress Index > +10% : High commuter pressure
+- Stress Index < -10% : High residential pressure
+- -10% <= Stress Index <= +10% : Balanced
 
-Locations showing year-over-year increases greater than 5%, or cumulative growth of over 10% within three years, are treated as emerging long-term pressure points and should be considered in medium- to long-term infrastructure planning.
+Sample output:
 
-## Weekday/Weekend Pattern Differentiation
+| District | Pop Growth % | Traffic Growth % | Stress Index | Classification |
+|----------|--------------|------------------|--------------|----------------|
+| 1        | 15.2%        | 8.3%             | -6.9%        | Balanced       |
+| 2        | 12.5%        | 22.1%            | +9.6%        | Commuter Hub   |
 
-A weekday-to-weekend ratio above 1.4 indicates commuter-dominated traffic, whereas ratios below 0.8 suggest leisure-oriented patterns. This distinction helps determine whether weekday or weekend interventions are more appropriate.
+## KPI 2: Peak-Hour Bottleneck Identification *(only if deeper analysis is required)*
+
+**Purpose.** Detect counting sites where peak-hour traffic consistently exceeds capacity.
+
+**KPI 2.1 – Average Hourly Traffic per Counting Site.** Calculate `AVG(vehicle_count)` grouped by `counting_site_id` and `HOUR(timestamp)` for measured rows from 2023–2025.
+
+**KPI 2.2 – Peak Hour per Site.** For each counting site (e.g., Seestrasse, Wollishofen), pick the hour with the maximum average volume.
+
+**KPI 2.3 – Bottleneck Threshold.** Flag sites where peak-hour volume exceeds 800 vehicles/hour. Example:
+
+| Counting Site Name       | Peak Hour | Avg Volume | Status     |
+|--------------------------|-----------|------------|------------|
+| Hardbrücke               | 08:00     | 1,245      | Bottleneck |
+| Bellevue                 | 17:00     | 1,102      | Bottleneck |
+| Seestrasse (Wollishofen) | 07:00     | 650        | Normal     |
+
+## KPI 3: Directional Imbalance *(optional, counting-site level)*
+
+**Purpose.** Reveal inbound vs. outbound inbalance using `MeasurementSite.direction`. Aggregate inbound and outbound totals per counting site (e.g., `SUM(CASE WHEN direction='inbound' …)`), compute the ratio, and highlight sites where the inbound/outbound ratio is above 1.5 or below 0.67.
+
+## KPI 4: Dashboard & Visualization Plan
+
+- **Visual 1: District Stress Index Map** – Heatmap based on KPI 1 results.
+- **Visual 2: Peak-Hour Heatmap** – Time-of-day heatmap per counting site using KPI 2 outputs.
+- **Visual 3: Growth Trend Comparison** – Grouped bar chart/scatterplot (population vs. traffic growth per district).
+- **Additional Visuals** – e.g., Any additional visualizations that the team discovers while doing the analysis.
+
+## KPI 5: Provide Actionable Insights for Planning Decisions
+
+**Purpose.** Convert KPI outputs into budget and intervention guidance for the Urban Planning Office.
+
+**KPI 5.1 – District Priorities.**
+
+| Priority | Stress Index Range | Recommended Action |
+|----------|-------------------|-------------------|
+| **High** | < -15% (residential pressure) | Expand public transit, add lanes, optimize signals |
+| **High** | > +15% (commuter pressure)    | Improve inbound capacity, park-and-ride facilities  |
+| **Medium** | -15% to -10% or +10% to +15% | Monitor trends, reassess in two years               |
+| **Low** | -10% to +10% (balanced)        | Maintain current infrastructure                     |
+
+**KPI 5.2 – Site(street)-Level Interventions.**
+
+- Top five bottleneck streets : immediate signal-timing optimization or capacity studies.
+- Streets with directional imbalance > 1.5 : directional lane adjustments or reversible lanes.
+
+**KPI 5.3 – Budget Allocation Guide.**
+
+1. Short-term (1–2 years): immediate action on the top ten bottleneck intersections flagged in KPI 2.
+2. Long-term (3–5 years): invest in infrastructure with persistent stress index extremes.
+
+Together, these five KPIs provide a structured, predefined guideline for our project and analysis.
 
 # Data Model & Database Schema
 
@@ -284,13 +325,146 @@ By modelling these relationships as optional, the ERD mirrors the true structure
 
 # Loading & Transforming the Data
 
+## Two-Stage Loading Strategy
+
+Our team implemented workflow to ensure data quality and enable flexible transformations. Raw CSV files were first loaded into staging tables within the `traffic_population_zh_staging` schema, validated, and then transformed into the normalized production schema (`traffic_population_zh`). This approach provided several advantages:
+
+- **Data validation**: Staging tables allowed inspection and cleaning before committing to the production schema.
+- **Transformation flexibility**: Adjustments could be still performed via SQL after initial load.
+- **Error isolation**: Loading issues in staging will not affect production tables.
+
+## Schema and Table Creation
+
+All production tables were defined using the script shown in Appendix A. The schema follows the Entity-Relationship model described in the previous chapter, implementing 3NF with appropriate primary and foreign keys.
+
+### Example: Population Table
+
+```sql
+CREATE TABLE Population (
+    population_id INT PRIMARY KEY,
+    reference_date_year INT,
+    sex_code INT,
+    origin_code INT,
+    city_district INT,
+    statistical_quarter VARCHAR(100),
+    population_count INT,
+    FOREIGN KEY (sex_code) REFERENCES Sex(sex_code),
+    FOREIGN KEY (origin_code) REFERENCES Origin(origin_code)
+);
+```
+
+### Example: TrafficMeasurement Table
+
+```sql
+CREATE TABLE TrafficMeasurement (
+    measurement_id INT PRIMARY KEY,
+    timestamp DATETIME,
+    vehicle_count INT,
+    vehicle_count_status VARCHAR(50),
+    measurement_site_id VARCHAR(50),
+    FOREIGN KEY (measurement_site_id) REFERENCES MeasurementSite(measurement_site_id)
+);
+```
+
+Lookup tables (dimension tables with no dependencies) (`Sex`, `Origin`, `TrafficSignal`) and geographic reference tables (`Quarter`) were created first to satisfy other tables foregin key requirements, like Population have foreign keys that point to these lookup tables.
+
+## Loading Raw Data into Staging Tables
+
+### CSV Accessibility Verification
+
+Before loading, the team verified that MySQL could access the CSV files correctly:
+
+```sql
+USE traffic_population_zh_staging;
+SELECT LOAD_FILE('C:\\Users\\RAMIRO\\Downloads\\population_data_cleaned_final.csv') 
+  IS NOT NULL AS can_read;
+```
+
+### LOAD DATA INFILE Command
+
+Population data was loaded using MySQL's `LOAD DATA INFILE` statement, it provides efficient loading:
+
+```sql
+LOAD DATA INFILE 'C:\\Users\\RAMIRO\\Downloads\\population_data_cleaned_final.csv'
+INTO TABLE population_data_staging
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS
+(reference_date_year, sex_code, sex, origin_code, origin, 
+ city_district, statistical_quarter, population_count);
+```
+
+Key parameters:
+
+- `FIELDS TERMINATED BY ','`: CSV delimiter
+- `OPTIONALLY ENCLOSED BY '"'`: Handles quoted fields containing commas
+- `IGNORE 1 ROWS`: Skips the CSV header row
+- Column list: Maps CSV columns to staging table columns in order
+
+Similar `LOAD DATA` commands were executed for the traffic and quarter datasets, loading them into `stg_traffic_data` and `quarter_data_staging`.
+
+## Transformation into Production Schema
+
+After staging validation, data was transformed and inserted into the normalized production tables. This involved:
+1.
+2.
+3.
+4.
+
+Example transformation:
+
+```sql code
+
+```
+
+## Challenges and Solutions
+
+Several technical challenges were encountered during the loading process:
+
+- **problem**:  
+- **problem**: 
+
+
 # Analyzing & Evaluating Data
+- **place holder**: 
 
 # Efficiency & Query Performance
+- **place holder**: 
 
 # Visualization & Decision Support
+- **place holder**: 
 
 # Conclusions & Lessons Learned
+- **place holder**: 
+
+# Individual Team Member Reflections (required)
+
+## Individual Member Structure
+- **Member Overview:** 
+- **Technical Takeaways:** 
+- **Collaboration Insights:** 
+- **Next Steps:** 
+
+# Generative AI Declaration & Guidelines
+
+Generative AI was used as a supplementary tool on top of the assisting material provided in the DBM lecture.
+
+### Guidelines for Responsible and Effective Usage of Gen-AI
+1. **Human-in-the-loop verification:** All AI-suggested content was treated as a draft. Text, code, or sources delivered by AI had to be critically reviewed and tested before inclusion.
+2. **Emphasis on learning:** Gen-AI functioned as a learning companion rather than an automated code generator. After receiving suggestions, team members engaged in follow-up questions to grasp the underlying logic and method.
+3. **Transparency:** The team openly acknowledged where and how AI was used in the workflow so the benefits and quality safeguards remained clear.
+
+### Use Cases of AI Tools in the DBM Course Context
+AI-based assistants were applied in the following specific cases:
+1. **Brainstorming:** Elaborating initial ideas, structuring thoughts, and outlining coding approaches.
+2. **Debugging & optimization:** Explaining error messages and helping improve self-developed scripts to raise efficiency.
+3. **Proofreading:** Accelerating grammar and typo checks during documentation.
+4. **Information acquisition:** Searching for methodological references or code documentation for SQL, R Markdown, or data-modeling concepts (always followed by human verification of credibility).
+
+### Benefits and Challenges in Using Generative AI Tools
+1. **Benefits:** Faster debugging (e.g., resolving R Markdown knitting errors or MySQL query issues), on-demand tutoring for advanced questions, and more time spent on analytical reasoning instead of routine fixes.
+2. **Challenges:** The ease of getting answers can create a temptation to trust outputs blindly. The "human-in-the-loop" guideline ensured the team retained ownership, validating every AI-assisted contribution.
 
 # How to render this report
 
@@ -308,3 +482,95 @@ rmarkdown::render("report.Rmd", output_format = "pdf_document")
 # If you need LaTeX for PDF and don't have it installed:
 # install.packages("tinytex"); tinytex::install_tinytex()
 ```
+
+\newpage
+
+# Appendix
+
+This appendix provides complete code listings and supplementary materials referenced in the main report.
+
+---
+
+## Appendix A: Complete Script for Table Creation
+
+The following SQL script defines all tables in the `traffic_population_zh` production schema. This script was executed on the MySQL server to create the normalized database structure described in Chapter 4 (Data Model & Database Schema).
+
+```sql
+USE traffic_population_zh;
+
+CREATE TABLE Sex (
+    sex_code INT PRIMARY KEY,
+    sex VARCHAR(50)
+);
+
+CREATE TABLE Origin (
+    origin_code INT PRIMARY KEY,
+    origin VARCHAR(100)
+);
+
+
+CREATE TABLE Population (
+    population_id INT PRIMARY KEY,
+    reference_date_year INT,
+    sex_code INT,
+    origin_code INT,
+    city_district INT,
+    statistical_quarter VARCHAR(100),
+    population_count INT,
+    FOREIGN KEY (sex_code) REFERENCES Sex(sex_code),
+    FOREIGN KEY (origin_code) REFERENCES Origin(origin_code)
+);
+
+
+CREATE TABLE Quarter (
+    street_name VARCHAR(100) PRIMARY KEY,
+    city_district INT,
+    statistical_quarter INT
+);
+
+CREATE TABLE CountingSite (
+    counting_site_id VARCHAR(50) PRIMARY KEY,
+    counting_site_name VARCHAR(100),
+    axis VARCHAR(100),
+    east_coordinate FLOAT,
+    north_coordinate FLOAT,
+    signal_id VARCHAR(50)
+);
+
+CREATE TABLE MeasurementSite (
+    measurement_site_id VARCHAR(50) PRIMARY KEY,
+    measurement_site_name VARCHAR(100),
+    direction VARCHAR(50),
+    position_description VARCHAR(200),
+    num_detectors INT,
+    counting_site_id VARCHAR(50),
+    FOREIGN KEY (counting_site_id) REFERENCES CountingSite(counting_site_id)
+);
+
+CREATE TABLE TrafficSignal (
+    signal_id VARCHAR(50) PRIMARY KEY,
+    signal_name VARCHAR(100)
+);
+
+CREATE TABLE TrafficMeasurement (
+    measurement_id INT PRIMARY KEY,
+    timestamp DATETIME,
+    vehicle_count INT,
+    vehicle_count_status VARCHAR(50),
+    measurement_site_id VARCHAR(50),
+    FOREIGN KEY (measurement_site_id) REFERENCES MeasurementSite(measurement_site_id)
+);
+
+-- Optional: Add foreign key constraint for traffic signals
+-- ALTER TABLE CountingSite
+-- ADD FOREIGN KEY (signal_id) REFERENCES TrafficSignal(signal_id);
+
+-- Optional: Performance indexes (discussed in Efficiency chapter)
+-- CREATE INDEX idx_population_sex ON Population(sex_code);
+-- CREATE INDEX idx_population_origin ON Population(origin_code);
+-- CREATE INDEX idx_measurement_timestamp ON TrafficMeasurement(timestamp);
+-- CREATE INDEX idx_measurement_site ON TrafficMeasurement(measurement_site_id);
+-- CREATE INDEX idx_counting_site_signal ON CountingSite(signal_id);
+```
+
+## Appendix B: Complete Script for Table Transformation
