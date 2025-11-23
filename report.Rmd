@@ -119,9 +119,8 @@ Together, these five KPIs provide a structured, predefined guideline for our pro
 
 ## Data Preprocessing & Preparation
 
-- Hourly traffic count data, address data (inkluding city district and quarter) and population data from the City of Zurich’s open data portal was collected.
+- Hourly **traffic count** data, **address** data (inkluding city district and quarter) and **population** data from the City of Zurich’s open data portal was collected.
 - The raw datasets consisted of multiple CSV files (2012–2025).
-- All CSV files were loaded with Python using the Pandas library.
 
 ### Raw Dataset Columns: Traffic Data
 
@@ -198,7 +197,7 @@ To link traffic data with geographic units, the raw fields required several prep
   Using regular expressions, house numbers (including suffixes such as `12b`, `17d`) were removed, leaving a clean street-level identifier.
 
 - **Data-type normalisation**  
-  `city_district` was converted to a nullable integer type, and `statistical_quarter` was normalised as a trimmed string. Inconsistent labels such as `"Schwamend.-Mitte"` were harmonised to `"Schwamendingen-Mitte"` to ensure joinability with the population dataset.
+  `statistical_quarter` was normalised as a trimmed string. Inconsistent labels such as `"Schwamend.-Mitte"` were harmonised to `"Schwamendingen-Mitte"` to ensure joinability with the population dataset.
   
 #### Additional Standardisation for Street Name Matching
 
@@ -252,7 +251,6 @@ To prepare the dataset for integration and analysis, several cleaning and normal
   German labels for sex and origin (e.g., `"männlich"`, `"weiblich"`, `"Schweizer*in"`, `"Ausländer*in"`) were translated to English.  
   The numeric codes (`SexCd`, `HerkunftCd`) were preserved and renamed to `sex_code` and `origin_code`, as these form stable keys for later relational integration.
 - **Data-type normalisation**  
-  - `KreisCd` was converted from float to nullable integer and renamed to `city_district`.
   - `QuarLang` was cleaned and normalised (whitespace trimming, harmonisation of abbreviations), then renamed to `statistical_quarter`.
 
 #### Cleaned Population Dataset Columns
@@ -287,7 +285,7 @@ The model is centred around the **traffic measurement process**, which is repres
 - **TrafficMeasurement**  
   Stores the hourly measured vehicle counts, including measurement status and timestamp.
 
-These three entities form a clear 1:n:n hierarchy:  
+These three entities form a 1:n:n hierarchy:  
 **CountingSite → MeasurementSite → TrafficMeasurement**.
 
 ### Traffic Signal Dimension
@@ -327,103 +325,174 @@ By modelling these relationships as optional, the ERD mirrors the true structure
 
 ## Two-Stage Loading Strategy
 
-Our team implemented workflow to ensure data quality and enable flexible transformations. Raw CSV files were first loaded into staging tables within the `traffic_population_zh_staging` schema, validated, and then transformed into the normalized production schema (`traffic_population_zh`). This approach provided several advantages:
+To ensure data quality and maintain a clear separation between raw and transformed data, a two-stage workflow was applied. All CSV files were initially loaded into **staging tables** within the schema `traffic_population_zh`. These staging tables stored the raw content without constraints and served as a safe environment for validation and transformation.
 
-- **Data validation**: Staging tables allowed inspection and cleaning before committing to the production schema.
-- **Transformation flexibility**: Adjustments could be still performed via SQL after initial load.
-- **Error isolation**: Loading issues in staging will not affect production tables.
+This approach offered several advantages:
+
+- **Data validation:** Raw data could be inspected before applying constraints.
+- **Flexible transformations:** Cleaning and restructuring could be performed iteratively in SQL.
+- **Error isolation:** Problems in staging did not affect the normalized production tables.
 
 ## Schema and Table Creation
 
-All production tables were defined using the script shown in Appendix A. The schema follows the Entity-Relationship model described in the previous chapter, implementing 3NF with appropriate primary and foreign keys.
+The production schema was created based on the Entity-Relationship Diagram (ERD) described earlier. The design follows **Third Normal Form (3NF)** and includes:
 
-### Example: Population Table
+- primary keys on all dimension tables,
+- foreign keys from fact tables to dimensions,
+- lookup tables (`Sex`, `Origin`, `TrafficSignal`) for categorical attributes,
+- a geographical reference table (`Quarter`),
+- no redundant attributes stored in fact tables.
+
+### Final Population Table
+
+The `Population` table functions as a fact table and does not require a surrogate primary key. It stores only essential attributes and references to dimension tables:
 
 ```sql
 CREATE TABLE Population (
-    population_id INT PRIMARY KEY,
-    reference_date_year INT,
-    sex_code INT,
-    origin_code INT,
-    city_district INT,
-    statistical_quarter VARCHAR(100),
-    population_count INT,
-    FOREIGN KEY (sex_code) REFERENCES Sex(sex_code),
-    FOREIGN KEY (origin_code) REFERENCES Origin(origin_code)
+    reference_date_year DATETIME,
+    sex_code            VARCHAR(50),
+    origin_code         VARCHAR(50),
+    city_district       INT,
+    statistical_quarter VARCHAR(255),
+    population_count    INT,
+    FOREIGN KEY (sex_code)     REFERENCES Sex(sex_code),
+    FOREIGN KEY (origin_code)  REFERENCES Origin(origin_code)
 );
 ```
 
-### Example: TrafficMeasurement Table
+### Final TrafficMeasurement Table
+
+The TrafficMeasurement table contains more than 21 million hourly traffic observations and was therefore implemented without a surrogate primary key:
 
 ```sql
 CREATE TABLE TrafficMeasurement (
-    measurement_id INT PRIMARY KEY,
-    timestamp DATETIME,
-    vehicle_count INT,
-    vehicle_count_status VARCHAR(50),
-    measurement_site_id VARCHAR(50),
+    measurement_site_id      VARCHAR(255),
+    timestamp                DATETIME,
+    vehicle_count            INT,
+    vehicle_count_status     VARCHAR(50),
     FOREIGN KEY (measurement_site_id) REFERENCES MeasurementSite(measurement_site_id)
 );
 ```
 
-Lookup tables (dimension tables with no dependencies) (`Sex`, `Origin`, `TrafficSignal`) and geographic reference tables (`Quarter`) were created first to satisfy other tables foregin key requirements, like Population have foreign keys that point to these lookup tables.
+Lookup and dimension tables were created first to ensure that all foreign key dependencies were satisfied before loading the fact tables.
 
-## Loading Raw Data into Staging Tables
 
-### CSV Accessibility Verification
+### Loading Raw Data into Staging Tables
 
-Before loading, the team verified that MySQL could access the CSV files correctly:
+**CSV Accessibility Verification**
+
+Before loading data, the ability of MySQL to read CSV files inside the virtual machine environment was confirmed:
 
 ```sql
-USE traffic_population_zh_staging;
-SELECT LOAD_FILE('C:\\Users\\RAMIRO\\Downloads\\population_data_cleaned_final.csv') 
-  IS NOT NULL AS can_read;
+SELECT LOAD_FILE('C:\\Users\\labadmin\\Downloads\\population_data_cleaned_final.csv') 
+IS NOT NULL AS can_read;
 ```
 
-### LOAD DATA INFILE Command
+***Bulk Loading with LOAD DATA LOCAL INFILE***
 
-Population data was loaded using MySQL's `LOAD DATA INFILE` statement, it provides efficient loading:
+CSV data was imported into staging tables using MySQL’s LOAD DATA LOCAL INFILE command.
+Example for the population dataset:
 
 ```sql
-LOAD DATA INFILE 'C:\\Users\\RAMIRO\\Downloads\\population_data_cleaned_final.csv'
-INTO TABLE population_data_staging
+LOAD DATA LOCAL INFILE 'C:\\Users\\labadmin\\Downloads\\
+population_data_cleaned_final.csv'
+INTO TABLE stg_population_data
 FIELDS TERMINATED BY ','
 OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\n'
-IGNORE 1 ROWS
-(reference_date_year, sex_code, sex, origin_code, origin, 
- city_district, statistical_quarter, population_count);
+IGNORE 1 LINES;
 ```
 
-Key parameters:
+Similar staging tables were used for loading (see Appendices):
 
-- `FIELDS TERMINATED BY ','`: CSV delimiter
-- `OPTIONALLY ENCLOSED BY '"'`: Handles quoted fields containing commas
-- `IGNORE 1 ROWS`: Skips the CSV header row
-- Column list: Maps CSV columns to staging table columns in order
+- stg_traffic_data
+- stg_quarter_data
+- stg_population_lookup (for lookup dimensions)
 
-Similar `LOAD DATA` commands were executed for the traffic and quarter datasets, loading them into `stg_traffic_data` and `quarter_data_staging`.
+### Transformation into the Production Schema
 
-## Transformation into Production Schema
+After loading the staging tables, all transformations were executed in SQL. The workflow included deduplication, type conversion, creation of lookup tables, and population of normalized production tables.
 
-After staging validation, data was transformed and inserted into the normalized production tables. This involved:
-1.
-2.
-3.
-4.
+1. Deduplication Using GROUP BY
 
-Example transformation:
+Several entities—such as Quarter, CountingSite, and MeasurementSite—appeared multiple times due to repeated values in the raw datasets. Deduplication was achieved using GROUP BY combined with safe selection of consistent values:
 
-```sql code
-
+```sql
+SELECT street_name,
+       CAST(CAST(MIN(city_district) AS DECIMAL(10,2)) AS SIGNED),
+       MIN(statistical_quarter)
+FROM stg_quarter_data
+GROUP BY street_name;
 ```
 
-## Challenges and Solutions
+2. Type Conversion and Cleaning
 
-Several technical challenges were encountered during the loading process:
+Many numeric fields in the raw CSV files appeared as strings ("1.0", "224.0") or contained empty values ("").
+To ensure safe conversion to integers, nested casting was used:
 
-- **problem**:  
-- **problem**: 
+```sql
+CAST(CAST(NULLIF(TRIM(city_district), '') AS DECIMAL(10,2)) AS SIGNED)
+```
+
+This approach ensures correct handling of decimals and empty strings.
+
+3. Construction of Lookup Tables (Sex and Origin)
+
+A lightweight lookup staging table was reloaded to extract dimension values for Sex and Origin:
+
+```sql
+LOAD DATA LOCAL INFILE ...
+INTO TABLE stg_population_lookup
+(@date, sex_code, sex, origin_code, origin, @d1, @d2, @d3);
+```
+
+Deduplicated lookup tables were then created as follows:
+
+```sql
+INSERT INTO Sex    SELECT DISTINCT sex_code, sex       FROM stg_population_lookup;
+INSERT INTO Origin SELECT DISTINCT origin_code, origin FROM stg_population_lookup;
+```
+
+4. Normalization of the Population Table
+
+During the initial loading, descriptive columns such as sex and origin were included in the staging and production tables.
+After constructing the lookup tables, these redundant attributes were removed:
+
+```sql
+ALTER TABLE Population
+DROP COLUMN sex,
+DROP COLUMN origin;
+```
+
+Foreign keys were then added to ensure referential integrity.
+
+### Challenges and Solutions
+
+**Challenge 1: Decimal-formatted numeric values**
+
+In the Quarter dataset, the column `city_district` contained numeric values stored as strings in decimal format (e.g., "1.0"). Direct casting of these values into integer columns caused MySQL conversion errors during the ETL process (Error Code: 1366. Incorrect DECIMAL value: '1.0').
+*Solution: A two-stage conversion using DECIMAL(10,2) and NULLIF cleaned and normalized the input values.*
+
+**Challenge 2: Empty strings in numeric fields**
+
+Several numeric columns in the Population dataset (e.g., `population_count`, `city_district`) contained empty strings ('') or whitespace (' '). These produced errors when MySQL attempted to convert them into integers (Error Code: 1292. Truncated incorrect INTEGER value: '').
+*Solution:*
+
+```sql
+NULLIF(TRIM(value), '')
+```
+
+*was used to convert empty strings to NULL before casting.*
+
+**Challenge 3: Large-scale inserts with foreign key dependencies**
+
+Issue: Bulk loading millions of records into a normalized schema requires temporary suspension of referential integrity checks to achieve acceptable performance.
+*Solution: Foreign key checks were intentionally disabled during insertion and reactivated after the operation, following standard best practices for ETL pipelines.*
+
+**Challenge 4: Reconstruction of lookup data**
+
+Issue: The original staging table containing lookup information for Sex and Origin had accidentally been deleted.
+*Solution: A minimal stg_population_lookup table was recreated and reloaded to regenerate the necessary dimension tables.*
 
 
 # Analyzing & Evaluating Data
@@ -485,92 +554,546 @@ rmarkdown::render("report.Rmd", output_format = "pdf_document")
 
 \newpage
 
-# Appendix
+# Appendix A: Traffic Data – Complete ETL Script
 
-This appendix provides complete code listings and supplementary materials referenced in the main report.
+This appendix contains the full SQL workflow used to load, clean, transform, and normalize the traffic dataset.  
+The process consists of three stages:
+
+1. **Staging** — Load raw CSV data without constraints  
+2. **Schema Creation** — Create normalized production tables  
+3. **Transformation** — Insert cleaned, deduplicated, type‐safe data into the production schema  
 
 ---
 
-## Appendix A: Complete Script for Table Creation
-
-The following SQL script defines all tables in the `traffic_population_zh` production schema. This script was executed on the MySQL server to create the normalized database structure described in Chapter 4 (Data Model & Database Schema).
+## Staging Table Creation
 
 ```sql
 USE traffic_population_zh;
 
+CREATE TABLE stg_traffic_data (
+    measurement_site_id       VARCHAR(255),
+    measurement_site_name     VARCHAR(255),
+    counting_site_id          VARCHAR(255),
+    counting_site_name        VARCHAR(255),
+    axis                      VARCHAR(255),
+    position_description      VARCHAR(255),
+    east_coordinate           VARCHAR(255),
+    north_coordinate          VARCHAR(255),
+    direction                 VARCHAR(255),
+    signal_id                 VARCHAR(255),
+    signal_name               VARCHAR(255),
+    num_detectors             VARCHAR(255),
+    timestamp                 VARCHAR(255),
+    vehicle_count             VARCHAR(255),
+    vehicle_count_status      VARCHAR(255)
+);
+```
+
+---
+
+## Load Raw Traffic CSV into Staging
+
+```sql
+LOAD DATA LOCAL INFILE 'C:\\Users\\labadmin\\Downloads\\traffic_data_cleaned_final.csv'
+INTO TABLE stg_traffic_data
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 LINES;
+```
+
+---
+
+## Production Schema Creation (Normalized Tables)
+
+### TrafficSignal (Lookup Dimension)
+
+```sql
+CREATE TABLE TrafficSignal (
+    signal_id        INT PRIMARY KEY,
+    signal_name      VARCHAR(255)
+);
+```
+
+### CountingSite (Level 1 Spatial Entity)
+
+```sql
+CREATE TABLE CountingSite (
+    counting_site_id      VARCHAR(50) PRIMARY KEY,
+    counting_site_name    VARCHAR(255),
+    axis                  VARCHAR(255),
+    east_coordinate       FLOAT,
+    north_coordinate      FLOAT,
+    signal_id             INT,
+    FOREIGN KEY (signal_id) REFERENCES TrafficSignal(signal_id)
+);
+```
+
+### MeasurementSite (Level 2 Spatial Entity)
+
+```sql
+CREATE TABLE MeasurementSite (
+    measurement_site_id     VARCHAR(50) PRIMARY KEY,
+    measurement_site_name   VARCHAR(255),
+    direction               VARCHAR(50),
+    position_description    VARCHAR(255),
+    num_detectors           INT,
+    counting_site_id        VARCHAR(50),
+    FOREIGN KEY (counting_site_id) REFERENCES CountingSite(counting_site_id)
+);
+```
+
+### TrafficMeasurement (Fact Table with 21M+ Rows)
+
+```sql
+CREATE TABLE TrafficMeasurement (
+    traffic_measurement_id   INT AUTO_INCREMENT PRIMARY KEY,
+    measurement_site_id      VARCHAR(50),
+    timestamp                DATETIME,
+    vehicle_count            INT,
+    vehicle_count_status     VARCHAR(50),
+    FOREIGN KEY (measurement_site_id) REFERENCES MeasurementSite(measurement_site_id)
+);
+```
+
+---
+
+## Transformation into Production Schema
+
+Foreign key checks are disabled temporarily to allow inserting dimension rows before the referencing fact table is loaded.
+
+```sql
+SET FOREIGN_KEY_CHECKS = 0;
+```
+
+---
+
+### Insert Traffic Signals (Deduplicated)
+
+```sql
+INSERT INTO TrafficSignal (signal_id, signal_name)
+SELECT
+    signal_id_int,
+    MIN(signal_name) AS signal_name
+FROM (
+    SELECT
+        CAST(signal_id AS UNSIGNED) AS signal_id_int,
+        signal_name
+    FROM stg_traffic_data
+    WHERE signal_id REGEXP '^[0-9]+$'
+) AS sub
+GROUP BY signal_id_int;
+```
+
+---
+
+### Clean CountingSite (Deduplicate & Normalize)
+
+Drop axis column due to inconsistent values:
+
+```sql
+ALTER TABLE CountingSite
+DROP COLUMN axis;
+```
+
+Insert cleaned counting sites:
+
+```sql
+INSERT INTO CountingSite (
+    counting_site_id,
+    counting_site_name,
+    east_coordinate,
+    north_coordinate,
+    signal_id
+)
+SELECT
+    counting_site_id,
+    MIN(counting_site_name) AS counting_site_name,
+    MIN(CAST(east_coordinate AS FLOAT)) AS east_coordinate,
+    MIN(CAST(north_coordinate AS FLOAT)) AS north_coordinate,
+    MIN(CAST(signal_id AS UNSIGNED)) AS signal_id
+FROM stg_traffic_data
+GROUP BY counting_site_id;
+```
+
+---
+
+### Clean MeasurementSite (Deduplicate & Normalize)
+
+```sql
+INSERT INTO MeasurementSite (
+    measurement_site_id,
+    measurement_site_name,
+    direction,
+    position_description,
+    num_detectors,
+    counting_site_id
+)
+SELECT
+    measurement_site_id,
+    MIN(measurement_site_name) AS measurement_site_name,
+    MIN(direction) AS direction,
+    MIN(position_description) AS position_description,
+    MIN(CAST(num_detectors AS UNSIGNED)) AS num_detectors,
+    MIN(counting_site_id) AS counting_site_id
+FROM stg_traffic_data
+GROUP BY measurement_site_id;
+```
+
+---
+
+### Insert TrafficMeasurement (21M+ Records)
+
+```sql
+INSERT INTO TrafficMeasurement (
+    measurement_site_id,
+    timestamp,
+    vehicle_count,
+    vehicle_count_status
+)
+SELECT
+    measurement_site_id,
+    STR_TO_DATE(timestamp, '%Y-%m-%dT%H:%i:%s'),
+    ROUND(vehicle_count),
+    vehicle_count_status
+FROM stg_traffic_data;
+```
+
+---
+
+## Final Cleanup
+
+```sql
+SET FOREIGN_KEY_CHECKS = 1;
+
+DROP TABLE stg_traffic_data;
+```
+
+# Appendix B: Quarter Data – Complete ETL Script
+
+This appendix contains the complete SQL workflow used to load, clean, deduplicate and transform the quarter‐level geographic dataset.
+
+The process consists of:
+
+1. **Staging** — Load the raw CSV without constraints  
+2. **Schema Creation** — Create the normalized `Quarter` table  
+3. **Transformation** — Deduplicate and convert types  
+4. **Cleanup** — Remove staging data  
+
+---
+
+## Staging Table Creation
+
+```sql
+USE traffic_population_zh;
+
+CREATE TABLE stg_quarter_data (
+    address             VARCHAR(255),
+    house_number        VARCHAR(255),
+    street_name         VARCHAR(255),
+    city_district       VARCHAR(255),
+    statistical_quarter VARCHAR(255)
+);
+```
+
+---
+
+## Load Raw Quarter CSV into Staging
+
+```sql
+LOAD DATA LOCAL INFILE 'C:\\Users\\labadmin\\Downloads\\quarter_data_cleaned_final.csv'
+INTO TABLE stg_quarter_data
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 LINES;
+```
+
+---
+
+## Create Normalized Quarter Table
+
+```sql
+USE traffic_population_zh;
+
+CREATE TABLE Quarter (
+    street_name          VARCHAR(255) PRIMARY KEY,
+    city_district        INT,
+    statistical_quarter  VARCHAR(255)
+);
+```
+
+---
+
+## Transformation: Deduplication & Type Conversion
+
+A single consistent row is required per `street_name`.  
+Several values in the raw CSV appear as decimals (e.g., `"1.0"`), strings, or blanks (`""`).  
+Nested `CAST()` and `NULLIF()` ensure reliable type handling.
+
+```sql
+INSERT INTO Quarter (
+    street_name,
+    city_district,
+    statistical_quarter
+)
+SELECT
+    street_name,
+
+    -- Convert empty strings to NULL, then cast numeric strings like "1.0" to INT
+    CAST(
+        CAST(
+            NULLIF(TRIM(MIN(city_district)), '') AS DECIMAL(10,2)
+        ) AS SIGNED
+    ) AS city_district,
+
+    -- statistical_quarter is a string → take MIN() as deterministic representative
+    MIN(statistical_quarter)
+FROM stg_quarter_data
+GROUP BY street_name;
+```
+
+---
+
+## Cleanup Staging Table
+
+```sql
+DROP TABLE stg_quarter_data;
+```
+
+# Appendix C: Population Data – Complete ETL Script
+
+This appendix documents the full SQL workflow for loading and transforming the population dataset. The ETL process follows the standard structure used throughout the project:
+
+1. **Staging** — Load raw CSV values as untyped strings  
+2. **Schema Creation** — Define the normalized production table  
+3. **Transformation** — Clean, cast and filter rows (2012 onward)  
+4. **Cleanup** — Remove staging data  
+
+---
+
+## Staging Table Creation
+
+```sql
+USE traffic_population_zh;
+
+CREATE TABLE stg_population_data (
+    reference_date_year      VARCHAR(50),
+    sex_code                 VARCHAR(50),
+    sex                      VARCHAR(50),
+    origin_code              VARCHAR(50),
+    origin                   VARCHAR(255),
+    city_district            VARCHAR(50),
+    statistical_quarter      VARCHAR(255),
+    population_count         VARCHAR(50)
+);
+```
+
+---
+
+## Load Raw Population CSV into Staging
+
+```sql
+LOAD DATA LOCAL INFILE 'C:\\Users\\labadmin\\Downloads\\population_data_cleaned_final.csv'
+INTO TABLE stg_population_data
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 LINES;
+```
+
+---
+
+## Create Normalized Population Table
+
+```sql
+USE traffic_population_zh;
+
+CREATE TABLE Population (
+    reference_date_year     DATETIME,
+    sex_code                VARCHAR(50),
+    sex                     VARCHAR(50),
+    origin_code             VARCHAR(50),
+    origin                  VARCHAR(255),
+    city_district           INT,
+    statistical_quarter     VARCHAR(255),
+    population_count        INT
+);
+```
+
+---
+
+## Transformation: Cleaning, Casting, Filtering
+
+The dataset contains mixed formats such as `"1.0"`, `"0"`, `" "` or `"224.0"`.  
+Nested casts ensure consistent numeric values:
+
+- `NULLIF(TRIM(x), '')` converts empty strings to NULL  
+- `DECIMAL(10,2)` handles values like `"1.0"`  
+- `SIGNED` converts final value to an integer  
+
+Additionally, only rows **from 2012 onward** are included.
+
+```sql
+INSERT INTO Population (
+    reference_date_year,
+    sex_code,
+    sex,
+    origin_code,
+    origin,
+    city_district,
+    statistical_quarter,
+    population_count
+)
+SELECT
+    STR_TO_DATE(reference_date_year, '%Y-%m-%d'),
+    sex_code,
+    sex,
+    origin_code,
+    origin,
+    CAST(CAST(NULLIF(TRIM(city_district), '') AS DECIMAL(10,2)) AS SIGNED),
+    statistical_quarter,
+    CAST(CAST(population_count AS DECIMAL(10,2)) AS SIGNED)
+FROM stg_population_data
+WHERE STR_TO_DATE(reference_date_year, '%Y-%m-%d') >= '2012-01-01';
+```
+
+---
+
+## Cleanup Staging Table
+
+```sql
+DROP TABLE stg_population_data;
+```
+
+# Appendix D: Lookup Tables – Complete ETL Script
+
+This appendix documents the workflow for extracting clean lookup values for `Sex` and `Origin` from the population dataset.  
+The ETL process consists of:
+
+1. **Staging** — Load untyped lookup fields  
+2. **Schema Creation** — Create normalized lookup tables  
+3. **Transformation** — Deduplicate and insert unique values  
+4. **Integration** — Attach foreign keys to the Population table  
+5. **Cleanup** — Drop staging table  
+
+---
+
+## Staging Table Creation
+
+```sql
+CREATE TABLE stg_population_lookup (
+    sex_code        VARCHAR(50),
+    sex             VARCHAR(50),
+    origin_code     VARCHAR(50),
+    origin          VARCHAR(255)
+);
+```
+
+---
+
+## Load Lookup Fields from Raw CSV
+
+Only the lookup-related columns are imported.  
+All other columns are ignored via dummy variables.
+
+```sql
+LOAD DATA LOCAL INFILE 'C:\\Users\\labadmin\\Downloads\\population_data_cleaned_final.csv'
+INTO TABLE stg_population_lookup
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 LINES
+(
+    @dummy_reference_date_year,
+    sex_code,
+    sex,
+    origin_code,
+    origin,
+    @dummy_city_district,
+    @dummy_statistical_quarter,
+    @dummy_population_count
+);
+```
+
+---
+
+## Create Normalized Lookup Tables
+
+```sql
 CREATE TABLE Sex (
-    sex_code INT PRIMARY KEY,
-    sex VARCHAR(50)
+    sex_code   VARCHAR(50) PRIMARY KEY,
+    sex        VARCHAR(50)
 );
 
 CREATE TABLE Origin (
-    origin_code INT PRIMARY KEY,
-    origin VARCHAR(100)
+    origin_code   VARCHAR(50) PRIMARY KEY,
+    origin        VARCHAR(255)
 );
-
-
-CREATE TABLE Population (
-    population_id INT PRIMARY KEY,
-    reference_date_year INT,
-    sex_code INT,
-    origin_code INT,
-    city_district INT,
-    statistical_quarter VARCHAR(100),
-    population_count INT,
-    FOREIGN KEY (sex_code) REFERENCES Sex(sex_code),
-    FOREIGN KEY (origin_code) REFERENCES Origin(origin_code)
-);
-
-
-CREATE TABLE Quarter (
-    street_name VARCHAR(100) PRIMARY KEY,
-    city_district INT,
-    statistical_quarter INT
-);
-
-CREATE TABLE CountingSite (
-    counting_site_id VARCHAR(50) PRIMARY KEY,
-    counting_site_name VARCHAR(100),
-    axis VARCHAR(100),
-    east_coordinate FLOAT,
-    north_coordinate FLOAT,
-    signal_id VARCHAR(50)
-);
-
-CREATE TABLE MeasurementSite (
-    measurement_site_id VARCHAR(50) PRIMARY KEY,
-    measurement_site_name VARCHAR(100),
-    direction VARCHAR(50),
-    position_description VARCHAR(200),
-    num_detectors INT,
-    counting_site_id VARCHAR(50),
-    FOREIGN KEY (counting_site_id) REFERENCES CountingSite(counting_site_id)
-);
-
-CREATE TABLE TrafficSignal (
-    signal_id VARCHAR(50) PRIMARY KEY,
-    signal_name VARCHAR(100)
-);
-
-CREATE TABLE TrafficMeasurement (
-    measurement_id INT PRIMARY KEY,
-    timestamp DATETIME,
-    vehicle_count INT,
-    vehicle_count_status VARCHAR(50),
-    measurement_site_id VARCHAR(50),
-    FOREIGN KEY (measurement_site_id) REFERENCES MeasurementSite(measurement_site_id)
-);
-
--- Optional: Add foreign key constraint for traffic signals
--- ALTER TABLE CountingSite
--- ADD FOREIGN KEY (signal_id) REFERENCES TrafficSignal(signal_id);
-
--- Optional: Performance indexes (discussed in Efficiency chapter)
--- CREATE INDEX idx_population_sex ON Population(sex_code);
--- CREATE INDEX idx_population_origin ON Population(origin_code);
--- CREATE INDEX idx_measurement_timestamp ON TrafficMeasurement(timestamp);
--- CREATE INDEX idx_measurement_site ON TrafficMeasurement(measurement_site_id);
--- CREATE INDEX idx_counting_site_signal ON CountingSite(signal_id);
 ```
 
-## Appendix B: Complete Script for Table Transformation
+---
+
+## Populate Lookup Tables (Deduplicated)
+
+### Insert Sex Codes
+
+```sql
+INSERT INTO Sex (sex_code, sex)
+SELECT DISTINCT
+    sex_code,
+    sex
+FROM stg_population_lookup
+WHERE sex_code IS NOT NULL AND sex_code != '';
+```
+
+### Insert Origin Codes
+
+```sql
+INSERT INTO Origin (origin_code, origin)
+SELECT DISTINCT
+    origin_code,
+    origin
+FROM stg_population_lookup
+WHERE origin_code IS NOT NULL AND origin_code != '';
+```
+
+---
+
+## Normalize Population Table by Removing Redundant Columns
+
+The descriptive values `sex` and `origin` are removed from the `Population` fact table.  
+Only the codes remain, backed by lookup tables.
+
+```sql
+ALTER TABLE Population
+DROP COLUMN sex,
+DROP COLUMN origin;
+```
+
+---
+
+## Add Foreign Key Constraints to Population
+
+```sql
+ALTER TABLE Population
+ADD CONSTRAINT fk_population_sex
+    FOREIGN KEY (sex_code)
+    REFERENCES Sex(sex_code);
+
+ALTER TABLE Population
+ADD CONSTRAINT fk_population_origin
+    FOREIGN KEY (origin_code)
+    REFERENCES Origin(origin_code);
+```
+
+---
+
+## Cleanup Staging Table
+
+```sql
+DROP TABLE stg_population_lookup;
+```
+
+
+
