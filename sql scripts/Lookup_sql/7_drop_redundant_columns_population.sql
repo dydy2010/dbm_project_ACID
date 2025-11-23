@@ -1,0 +1,3 @@
+ALTER TABLE Population
+DROP COLUMN sex,
+DROP COLUMN origin;
