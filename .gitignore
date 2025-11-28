@@ -25,3 +25,6 @@ data/
 logs/
 *.log
 *.tmp
+
+# Misc single-off artifacts
+rstore*
