@@ -354,11 +354,11 @@ CREATE TABLE Population (
     origin_code         VARCHAR(50),
     city_district       INT,
     statistical_quarter VARCHAR(255),
-    population_count    INT,
-    FOREIGN KEY (sex_code)     REFERENCES Sex(sex_code),
-    FOREIGN KEY (origin_code)  REFERENCES Origin(origin_code)
+    population_count    INT
 );
 ```
+
+In the final implementation, sex_code and origin_code are still conceptually linked to the Sex and Origin lookup tables, but foreign key constraints are not enforced in the database to keep loading operations simple and fast.
 
 ### Final TrafficMeasurement Table
 
@@ -496,7 +496,148 @@ Issue: The original staging table containing lookup information for Sex and Orig
 
 
 # Analyzing & Evaluating Data
-- **place holder**: 
+
+In a first step, comprehensive yearly views were created that aggregated traffic and population data together with their spatial dimensions (counting sites, measurement sites, districts, and statistical quarters). While these views were correct in terms of data modelling and provide a complete analytical basis for future work, they proved to be computationally heavy. Query execution was slow because MySQL needed to perform multiple joins across large tables (including millions of hourly traffic records) before applying the yearly aggregation. As a result, the performance of these large views was insufficient for analysis and rapid iteration.
+
+## Detailed Yearly Traffic View (Full Spatial Model)
+
+The following view joins hourly traffic measurements with both the measurement-site and counting-site metadata as well as the city's spatial units (districts and statistical quarters). It represents the full data model but is slow to evaluate due to the volume of underlying data.
+
+```sql
+CREATE VIEW v_traffic_yearly AS
+SELECT
+    YEAR(trafficmeasurement.timestamp) AS year,
+    countingsite.counting_site_id,
+    countingsite.counting_site_name,
+    measurementsite.measurement_site_id,
+    measurementsite.measurement_site_name,
+    measurementsite.direction,
+    quarter.city_district,
+    quarter.statistical_quarter,
+    SUM(trafficmeasurement.vehicle_count) AS yearly_vehicle_count
+FROM trafficmeasurement
+JOIN measurementsite
+    ON trafficmeasurement.measurement_site_id = measurementsite.measurement_site_id
+JOIN countingsite
+    ON measurementsite.counting_site_id = countingsite.counting_site_id
+JOIN quarter
+    ON countingsite.counting_site_name = quarter.street_name
+GROUP BY
+    YEAR(trafficmeasurement.timestamp),
+    countingsite.counting_site_id,
+    countingsite.counting_site_name,
+    measurementsite.measurement_site_id,
+    measurementsite.measurement_site_name,
+    measurementsite.direction,
+    quarter.city_district,
+    quarter.statistical_quarter;
+    ```
+
+## Detailed Yearly Population View (Spatial Resolution)
+
+Similarly, the population data was transformed into yearly values by extracting the last available monthly observation for each district and statistical quarter.
+This approach preserves the spatial resolution of the dataset while ensuring that population figures remain methodologically correct, since population counts represent point-in-time measurements rather than additive quantities. The resulting view is computationally efficient and yields consistent yearly reference values that can be compared directly with the aggregated traffic metrics.
+
+```sql
+CREATE VIEW v_population_yearly AS
+SELECT
+    YEAR(p.reference_date_year) AS year,
+    p.city_district,
+    p.statistical_quarter,
+    p.population_count AS population_total
+FROM population p
+JOIN (
+    SELECT 
+        city_district,
+        statistical_quarter,
+        YEAR(reference_date_year) AS year,
+        MAX(reference_date_year) AS last_date
+    FROM population
+    GROUP BY 
+        city_district,
+        statistical_quarter,
+        YEAR(reference_date_year)
+) t
+ON p.city_district = t.city_district
+AND p.statistical_quarter = t.statistical_quarter
+AND YEAR(p.reference_date_year) = t.year
+AND p.reference_date_year = t.last_date;
+
+```
+
+## Lightweight Views for City-Level Analysis
+
+To enable fast analytical queries and to support visualization tasks such as yearly trend analysis, lightweight city-level views were created for both population and traffic data. These views are intentionally simplified: they aggregate the datasets at the city–year level, avoid unnecessary joins, and use only the latest available data point per year to ensure consistency across the datasets.
+ 
+### Yearly Population View (City Level)
+
+The population data provides multiple reference dates per year. For analytical purposes, the latest available reference date within each year was selected (e.g., August 2025). The view then aggregates the population counts across all districts and statistical quarters to obtain a city-level value.
+
+```sql
+CREATE VIEW v_population_city_yearly AS
+SELECT
+    YEAR(p.reference_date_year) AS year,
+    SUM(p.population_count) AS population_city
+FROM population p
+JOIN (
+    SELECT 
+        YEAR(reference_date_year) AS year,
+        MAX(reference_date_year) AS latest_date
+    FROM population
+    GROUP BY YEAR(reference_date_year)
+) latest
+    ON YEAR(p.reference_date_year) = latest.year
+   AND p.reference_date_year = latest.latest_date
+GROUP BY YEAR(p.reference_date_year)
+ORDER BY year;
+```
+
+### Yearly Traffic View (City Level)
+
+The traffic dataset contains continuous hourly measurements. Similar to the population view, the latest timestamp per year was identified (e.g., November 2025), and all traffic counts from that timestamp were aggregated to city level.
+
+```sql
+CREATE VIEW v_traffic_city_yearly AS
+SELECT
+    YEAR(t.timestamp) AS year,
+    SUM(t.vehicle_count) AS vehicles_city
+FROM trafficmeasurement t
+JOIN (
+    SELECT 
+        YEAR(timestamp) AS year,
+        MAX(timestamp) AS latest_timestamp
+    FROM trafficmeasurement
+    GROUP BY YEAR(timestamp)
+) latest
+    ON YEAR(t.timestamp) = latest.year
+   AND t.timestamp = latest.latest_timestamp
+GROUP BY YEAR(t.timestamp)
+ORDER BY year;
+```
+
+### Combined View for Comparative Analysis
+
+For visualization in tools such as Metabase, a combined view was created that aligns the yearly population totals with the corresponding yearly traffic totals. Additionally, the view computes the year-over-year traffic growth to enable comparative trend analysis between demographic development and traffic intensity.
+
+```sql
+CREATE VIEW v_city_population_traffic AS
+SELECT
+    p.year,
+    p.population_city,
+    t.vehicles_city,
+    ROUND(
+        (t.vehicles_city - LAG(t.vehicles_city) OVER (ORDER BY p.year))
+        / LAG(t.vehicles_city) OVER (ORDER BY p.year) * 100,
+        2
+    ) AS traffic_growth_percent
+FROM v_population_city_yearly p
+LEFT JOIN v_traffic_city_yearly t
+       ON p.year = t.year
+ORDER BY p.year;
+```
+
+These lightweight analytical views provide a computationally efficient interface for exploring long-term trends and form the foundation for the project’s line chart visualizing the development of population and traffic between 2012 and 2025.
+
 
 # Efficiency & Query Performance
 - **place holder**: 
@@ -907,17 +1048,13 @@ IGNORE 1 LINES;
 ## Create Normalized Population Table
 
 ```sql
-USE traffic_population_zh;
-
 CREATE TABLE Population (
-    reference_date_year     DATETIME,
-    sex_code                VARCHAR(50),
-    sex                     VARCHAR(50),
-    origin_code             VARCHAR(50),
-    origin                  VARCHAR(255),
-    city_district           INT,
-    statistical_quarter     VARCHAR(255),
-    population_count        INT
+    reference_date_year DATETIME,
+    sex_code            VARCHAR(50),
+    origin_code         VARCHAR(50),
+    city_district       INT,
+    statistical_quarter VARCHAR(255),
+    population_count    INT
 );
 ```
 
@@ -938,9 +1075,7 @@ Additionally, only rows **from 2012 onward** are included.
 INSERT INTO Population (
     reference_date_year,
     sex_code,
-    sex,
     origin_code,
-    origin,
     city_district,
     statistical_quarter,
     population_count
@@ -948,9 +1083,7 @@ INSERT INTO Population (
 SELECT
     STR_TO_DATE(reference_date_year, '%Y-%m-%d'),
     sex_code,
-    sex,
     origin_code,
-    origin,
     CAST(CAST(NULLIF(TRIM(city_district), '') AS DECIMAL(10,2)) AS SIGNED),
     statistical_quarter,
     CAST(CAST(population_count AS DECIMAL(10,2)) AS SIGNED)
