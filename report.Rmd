@@ -33,6 +33,28 @@ To support Zurich’s urban planners in addressing congestion and mobility chall
 
 The KPI suite was first developed collaboratively by the team to ensure that every indicator directly supports the Zurich urban-planning use case. The procedure followed three steps: (1) define the analytical questions for districts and counting sites, (2) design SQL-ready calculations and classification thresholds, and (3) allow minor adjustments later in the project as additional data nuances emerged. This predefined framework now guides all downstream analytics and remains stable unless new evidence requires a targeted refinement.
 
+## KPI 0: Citywide Trend Overview (Population & Traffic)
+
+**Purpose.** Before diving into details, a high-level overview of Zurich’s development provides essential context. KPI 0 offers a citywide perspective by comparing the yearly population totals with the corresponding yearly traffic intensity. This helps identify whether mobility pressure is rising proportionally to demographic growth—or whether traffic is increasing at a faster pace than the population.
+
+This top-level KPI serves as an “orientation layer”: it highlights whether Zurich's population and mobility demands grow in sync across the entire analysis period (2012–2025) and sets the stage for the more granular KPIs that follow.
+
+**KPI 0.1 – Yearly Population (City Level).** For each calendar year, sum `population_count` across all quarters at the latest available reference date.
+(Standard: `SELECT YEAR(reference_date_year), SUM(population_count)` grouped by year.)
+
+**KPI 0.2 – Yearly Traffic Intensity (City Level).** Two-step aggregation using the join path TrafficMeasurement → MeasurementSite → CountingSite:
+
+1. Compute the yearly average `vehicle_count` per counting site
+(`AVG(vehicle_count)` grouped by `counting_site_id` and `YEAR(timestamp)`).
+
+2. Compute the citywide traffic intensity as the average of all site-level yearly averages (`AVG(site_avg)` grouped by year).
+
+This yields a normalized, representative yearly traffic indicator.
+
+Interpretation: KPI 0 does not classify or identify problems; instead, it provides an orientation layer. Plotting the two yearly metrics (population vs. traffic intensity) allows analysts to visually assess whether Zurich’s mobility load increases in line with population trends or diverges from them.
+
+This intuition forms the conceptual foundation for the more detailed KPIs that follow.
+
 ## KPI 1: District-Level Stress Index
 
 **Purpose.** Compare traffic volume growth with population growth for each district to detect commuter hubs and residential pressure zones.
@@ -63,15 +85,15 @@ Sample output:
 | 1        | 15.2%        | 8.3%             | -6.9%        | Balanced       |
 | 2        | 12.5%        | 22.1%            | +9.6%        | Commuter Hub   |
 
-## KPI 2: Peak-Hour Bottleneck Identification *(only if deeper analysis is required)*
+## KPI 2: Peak-Hour Bottleneck Identification
 
 **Purpose.** Detect counting sites where peak-hour traffic consistently exceeds capacity.
 
-**KPI 2.1 – Average Hourly Traffic per Counting Site.** Calculate `AVG(vehicle_count)` grouped by `counting_site_id` and `HOUR(timestamp)` for measured rows from 2023–2025.
+**KPI 2.1 – Average Hourly Traffic per Counting Site.** Calculate `AVG(vehicle_count)` grouped by `counting_site_id` and `HOUR(timestamp)`. The analysis focuses on the most recent three-year window (2023–2025) to capture current traffic patterns and avoid outdated peak-hour effects that no longer reflect today’s conditions.
 
 **KPI 2.2 – Peak Hour per Site.** For each counting site (e.g., Seestrasse, Wollishofen), pick the hour with the maximum average volume.
 
-**KPI 2.3 – Bottleneck Threshold.** Flag sites where peak-hour volume exceeds 800 vehicles/hour. Example:
+**KPI 2.3 – Bottleneck Threshold.** Flag sites where peak-hour volume exceeds 700 vehicles/hour. Example:
 
 | Counting Site Name       | Peak Hour | Avg Volume | Status     |
 |--------------------------|-----------|------------|------------|
@@ -79,9 +101,30 @@ Sample output:
 | Bellevue                 | 17:00     | 1,102      | Bottleneck |
 | Seestrasse (Wollishofen) | 07:00     | 650        | Normal     |
 
-## KPI 3: Directional Imbalance *(optional, counting-site level)*
+## KPI 3: Directional Imbalance
 
-**Purpose.** Reveal inbound vs. outbound inbalance using `MeasurementSite.direction`. Aggregate inbound and outbound totals per counting site (e.g., `SUM(CASE WHEN direction='inbound' …)`), compute the ratio, and highlight sites where the inbound/outbound ratio is above 1.5 or below 0.67.
+**Purpose.** Identify the primary directional flow at each counting site by comparing yearly traffic volumes across all measured directions. Instead of assuming an inbound/outbound split, this KPI evaluates how strongly traffic concentrates toward specific destination corridors. Using yearly aggregations ensures stable and meaningful directional patterns.
+
+**KPI 3.1 – Aggregate Traffic by Direction (Yearly).** For each counting site, all traffic counts belonging to the same direction are aggregated into a yearly total:
+
+- direction_volume(site, direction) = (sum of vehicle_count)
+
+**KPI 3.2 – Determine the Dominant Direction.** For each site, the direction with the highest yearly traffic volume is identified:
+
+- dominant_direction = max(direction_volume)
+
+The dominance share expresses how much of the total site traffic flows into that dominant direction:
+
+- dominance_share = direction_volume(dominant) / (sum of direction_volume across all directions)
+
+**KPI 3.3 – Classification of Directional Imbalance.**
+
+| Dominance Share | Interpretation                                 |
+|-----------------|-------------------------------------------------|
+| > 0.60          | Strong corridor dependency (one direction clearly dominates) |
+| 0.50–0.60       | Moderate directional preference                 |
+| < 0.50          | Balanced multi-directional intersection         |
+
 
 ## KPI 4: Dashboard & Visualization Plan
 
@@ -594,40 +637,53 @@ ORDER BY year;
 
 ### Yearly Traffic View (City Level)
 
-The traffic dataset contains continuous hourly measurements. Similar to the population view, the latest timestamp per year was identified (e.g., November 2025), and all traffic counts from that timestamp were aggregated to city level.
+The traffic dataset contains continuous hourly vehicle counts collected at numerous counting sites across the city. To derive a meaningful and comparable yearly traffic indicator, a two-step aggregation strategy was applied:
+
+**Per-Site Annual Average:**
+For each counting site and for each year, we computed the average hourly vehicle count. This ensures that each site contributes equally to the analysis, regardless of differences in measurement frequency or temporary data gaps.
+
+**City-Level Aggregation:**
+The citywide yearly value is then defined as the average of all site-level yearly averages. This provides a stable and representative indicator of overall traffic intensity for each year, suitable for trend analysis and comparison with population development.
+
+The resulting metric reflects the typical traffic load per counting site in a given year rather than relying on a single measurement timestamp, which would be highly sensitive to seasonal or hourly fluctuations.
 
 ```sql
 CREATE VIEW v_traffic_city_yearly AS
 SELECT
-    YEAR(t.timestamp) AS year,
-    SUM(t.vehicle_count) AS vehicles_city
-FROM trafficmeasurement t
-JOIN (
-    SELECT 
-        YEAR(timestamp) AS year,
-        MAX(timestamp) AS latest_timestamp
-    FROM trafficmeasurement
-    GROUP BY YEAR(timestamp)
-) latest
-    ON YEAR(t.timestamp) = latest.year
-   AND t.timestamp = latest.latest_timestamp
-GROUP BY YEAR(t.timestamp)
+    year,
+    AVG(site_avg) AS avg_vehicle_count_city
+FROM (
+    SELECT
+        cs.counting_site_id,
+        YEAR(tm.timestamp) AS year,
+        AVG(tm.vehicle_count) AS site_avg
+    FROM trafficmeasurement tm
+    JOIN measurementsite ms 
+        ON tm.measurement_site_id = ms.measurement_site_id
+    JOIN countingsite cs
+        ON ms.counting_site_id = cs.counting_site_id
+    GROUP BY cs.counting_site_id, YEAR(tm.timestamp)
+) s
+GROUP BY year
 ORDER BY year;
 ```
 
-### Combined View for Comparative Analysis
+### Combined View for Comparative Analysis for KPI0
 
-For visualization in tools such as Metabase, a combined view was created that aligns the yearly population totals with the corresponding yearly traffic totals. Additionally, the view computes the year-over-year traffic growth to enable comparative trend analysis between demographic development and traffic intensity.
+To support city-level trend analysis and visualization in tools such as Metabase, a combined view was created that brings together the yearly population totals and the corresponding yearly traffic intensity indicator. The population metric represents the end-of-year demographic count, while the traffic metric is derived from normalized yearly averages across all counting sites, providing a representative measure of citywide mobility intensity.
+
+By aligning these two indicators in a single dataset, the view enables direct comparison between demographic development and traffic dynamics. It also computes the year-over-year percentage change in traffic intensity, supporting KPI0 evaluations and long-term trend analysis.
 
 ```sql
-CREATE VIEW v_city_population_traffic AS
+CREATE VIEW v_kpi0_city_population_traffic AS
 SELECT
     p.year,
     p.population_city,
-    t.vehicles_city,
+    t.avg_vehicle_count_city,
     ROUND(
-        (t.vehicles_city - LAG(t.vehicles_city) OVER (ORDER BY p.year))
-        / LAG(t.vehicles_city) OVER (ORDER BY p.year) * 100,
+        (t.avg_vehicle_count_city 
+         - LAG(t.avg_vehicle_count_city) OVER (ORDER BY p.year))
+        / LAG(t.avg_vehicle_count_city) OVER (ORDER BY p.year) * 100,
         2
     ) AS traffic_growth_percent
 FROM v_population_city_yearly p
@@ -638,6 +694,117 @@ ORDER BY p.year;
 
 These lightweight analytical views provide a computationally efficient interface for exploring long-term trends and form the foundation for the project’s line chart visualizing the development of population and traffic between 2012 and 2025.
 
+## Stress Index for KPI1 (--> Dongy)
+
+text text text
+
+## Peak-Hour Bottleneck Analysis for KPI2
+
+To identify structurally congested road sections, KPI 2 determines the typical peak hour for each counting site. For all measurements between 2023 and 2025, the analysis computes the average traffic volume for every hour of the day (0–23) and selects the hour with the highest mean value as the site’s representative peak hour.
+
+A threshold of 700 vehicles/hour is used to classify capacity pressure:
+
+700 → Bottleneck / 700 → Normal
+
+This method avoids single-day outliers and captures recurring rush-hour patterns. An SQL view (`v_kpi2_bottlenecks`) was created to operationalise this logic, returning each site’s peak hour, the corresponding average volume, and the congestion status.
+
+```sql
+CREATE VIEW v_kpi2_bottlenecks AS
+SELECT
+    cs.counting_site_name,
+    CONCAT(LPAD(peak.hour, 2, '0'), ':00') AS peak_hour,
+    ROUND(peak.avg_volume, 0) AS avg_volume,
+    CASE
+        WHEN peak.avg_volume > 700 THEN 'Bottleneck'
+        ELSE 'Normal'
+    END AS status
+FROM (
+    SELECT
+        counting_site_id,
+        hour,
+        avg_volume,
+        ROW_NUMBER() OVER (
+            PARTITION BY counting_site_id
+            ORDER BY avg_volume DESC
+        ) AS rn
+    FROM (
+        SELECT
+            cs.counting_site_id,
+            HOUR(tm.timestamp) AS hour,
+            AVG(tm.vehicle_count) AS avg_volume
+        FROM trafficmeasurement tm
+        JOIN measurementsite ms 
+            ON tm.measurement_site_id = ms.measurement_site_id
+        JOIN countingsite cs
+            ON ms.counting_site_id = cs.counting_site_id
+        WHERE YEAR(tm.timestamp) BETWEEN 2023 AND 2025
+        GROUP BY cs.counting_site_id, HOUR(tm.timestamp)
+    ) hourly_avgs
+) peak
+JOIN countingsite cs 
+    ON peak.counting_site_id = cs.counting_site_id
+WHERE peak.rn = 1
+ORDER BY peak.avg_volume DESC;
+```
+
+## Dominant Direction Analysis for KPI3
+
+To compute KPI 3 efficiently in SQL, we aggregate yearly traffic volumes per direction, derive total site volumes, and rank directional flows to identify the dominant branch. The resulting view exposes both the dominance share and the classification threshold used for interpretation.
+
+```sql
+CREATE OR REPLACE VIEW v_kpi3_dominant_direction AS
+WITH direction_totals AS (
+    SELECT
+        cs.counting_site_name,
+        ms.direction,
+        SUM(tm.vehicle_count) AS direction_volume
+    FROM trafficmeasurement tm
+    JOIN measurementsite ms
+        ON tm.measurement_site_id = ms.measurement_site_id
+    JOIN countingsite cs
+        ON ms.counting_site_id = cs.counting_site_id
+    WHERE YEAR(tm.timestamp) BETWEEN 2023 AND 2025
+    GROUP BY cs.counting_site_name, ms.direction
+),
+
+site_totals AS (
+    SELECT
+        counting_site_name,
+        SUM(direction_volume) AS total_volume
+    FROM direction_totals
+    GROUP BY counting_site_name
+),
+
+ranked_directions AS (
+    SELECT
+        dt.counting_site_name,
+        dt.direction,
+        dt.direction_volume,
+        st.total_volume,
+        ROW_NUMBER() OVER (
+            PARTITION BY dt.counting_site_name
+            ORDER BY dt.direction_volume DESC
+        ) AS rn
+    FROM direction_totals dt
+    JOIN site_totals st
+        ON dt.counting_site_name = st.counting_site_name
+)
+
+SELECT
+    counting_site_name,
+    direction AS dominant_direction,
+    direction_volume AS dominant_volume,
+    total_volume,
+    direction_volume / total_volume AS dominance_share,
+    CASE
+        WHEN direction_volume / total_volume > 0.60 THEN 'Strong corridor dependency'
+        WHEN direction_volume / total_volume BETWEEN 0.50 AND 0.60 THEN 'Moderate directional preference'
+        ELSE 'Balanced intersection'
+    END AS classification
+FROM ranked_directions
+WHERE rn = 1
+ORDER BY dominance_share DESC;
+```
 
 # Efficiency & Query Performance
 - **place holder**: 

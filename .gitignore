@@ -28,4 +28,5 @@ logs/
 
 # Misc single-off artifacts
 rstore*
+.Rproj.user
 .Rhistory
