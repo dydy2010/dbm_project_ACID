@@ -23,35 +23,32 @@ CREATE TABLE kpi1_quarter_year_cache
 AS
 SELECT
     year,
-    city_district,
     statistical_quarter,
     SUM(population_total) AS population_total,
     SUM(vehicle_total)    AS vehicle_total
 FROM (
     SELECT 
         year,
-        city_district,
         statistical_quarter,
         population_total,
         0 AS vehicle_total
     FROM v_population_yearly
     WHERE year IN (2012, 2025)
 
-    UNION ALL -- we can also use join but complicated to join exactly the same elements
+    UNION ALL
 
     SELECT 
         year,
-        city_district,
         statistical_quarter,
         0 AS population_total,
         yearly_vehicle_count AS vehicle_total
     FROM v_traffic_yearly
     WHERE year IN (2012, 2025)
 ) raw_yearly
-GROUP BY year, city_district, statistical_quarter;
+GROUP BY year, statistical_quarter;
 
 CREATE INDEX idx_cache_year_quarter
-ON kpi1_quarter_year_cache (year, city_district, statistical_quarter);
+ON kpi1_quarter_year_cache (year, statistical_quarter);
 
 /* ---------------------------------------------------------------------------
    STEP 3 – Create a faster view on top of the cache table
@@ -62,7 +59,6 @@ ON kpi1_quarter_year_cache (year, city_district, statistical_quarter);
 CREATE OR REPLACE VIEW v_kpi1_efficiency_improved AS
 WITH paired AS (
     SELECT
-        y2012.city_district,
         y2012.statistical_quarter,
         y2012.population_total AS population_2012,
         y2025.population_total AS population_2025,
@@ -70,30 +66,36 @@ WITH paired AS (
         y2025.vehicle_total    AS traffic_2025
     FROM kpi1_quarter_year_cache y2012
     JOIN kpi1_quarter_year_cache y2025
-      ON y2025.city_district       = y2012.city_district
-     AND y2025.statistical_quarter = y2012.statistical_quarter
+      ON y2025.statistical_quarter = y2012.statistical_quarter
     WHERE y2012.year = 2012
       AND y2025.year = 2025
 ),
 stress AS (
     SELECT
-        city_district,
         statistical_quarter,
         population_2012,
         population_2025,
         traffic_2012,
         traffic_2025,
-        ROUND(((population_2025 - population_2012) / population_2012) * 100, 1) AS population_growth_pct,
-        ROUND(((traffic_2025    - traffic_2012)    / traffic_2012)    * 100, 1) AS traffic_growth_pct,
-        ROUND(
-            ((traffic_2025    - traffic_2012)    / traffic_2012)    * 100
-          - ((population_2025 - population_2012) / population_2012) * 100,
-            1
-        ) AS stress_index_pct
+        CASE
+            WHEN population_2012 IS NULL OR population_2012 = 0 THEN NULL
+            ELSE ROUND(((population_2025 - population_2012) / population_2012) * 100, 1)
+        END AS population_growth_pct,
+        CASE
+            WHEN traffic_2012 IS NULL OR traffic_2012 = 0 THEN NULL
+            ELSE ROUND(((traffic_2025 - traffic_2012) / traffic_2012) * 100, 1)
+        END AS traffic_growth_pct,
+        CASE
+            WHEN traffic_2012 IS NULL OR traffic_2012 = 0 OR population_2012 IS NULL OR population_2012 = 0 THEN NULL
+            ELSE ROUND(
+                ((traffic_2025 - traffic_2012) / traffic_2012) * 100
+              - ((population_2025 - population_2012) / population_2012) * 100,
+                1
+            )
+        END AS stress_index_pct
     FROM paired
 )
 SELECT
-    city_district        AS district_id,
     statistical_quarter  AS quarter_name,
     population_2012,
     population_2025,
@@ -103,6 +105,7 @@ SELECT
     traffic_growth_pct,
     stress_index_pct,
     CASE
+        WHEN stress_index_pct IS NULL THEN 'Insufficient data'
         WHEN NTILE(4) OVER (ORDER BY stress_index_pct) = 4 THEN 'Commuter pressure'
         WHEN NTILE(4) OVER (ORDER BY stress_index_pct) = 1 THEN 'Residential pressure'
         ELSE 'Balanced'
@@ -116,5 +119,5 @@ FROM stress;
 
 SELECT *
 FROM v_kpi1_efficiency_improved
-ORDER BY district_id, quarter_name
+ORDER BY quarter_name
 LIMIT 50;

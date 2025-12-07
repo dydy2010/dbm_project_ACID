@@ -24,6 +24,7 @@ GROUP BY city_district, statistical_quarter, year
 ORDER BY city_district, statistical_quarter, year;
 
 -- v3 same logic, but create a view with it, this is the end product and was used
+USE traffic_population_zh;
 CREATE OR REPLACE VIEW v_kpi1_quarter_stress_index AS
 WITH pop AS (
     SELECT 
@@ -37,11 +38,10 @@ WITH pop AS (
 traffic AS (
     SELECT 
         year,
-        city_district,
         statistical_quarter,
         SUM(yearly_vehicle_count) AS vehicle_total
     FROM v_traffic_yearly
-    GROUP BY year, city_district, statistical_quarter
+    GROUP BY year, statistical_quarter
 ),
 paired AS (
     SELECT 
@@ -52,17 +52,14 @@ paired AS (
         t2012.vehicle_total   AS vehicle_total_2012,
         t2025.vehicle_total   AS vehicle_total_2025
     FROM pop p2012
-    JOIN pop p2025 
-        ON p2025.city_district = p2012.city_district
-       AND p2025.statistical_quarter = p2012.statistical_quarter
+    LEFT JOIN pop p2025 
+        ON p2025.statistical_quarter = p2012.statistical_quarter
        AND p2025.year = 2025
-    JOIN traffic t2012 
-        ON t2012.city_district = p2012.city_district
-       AND t2012.statistical_quarter = p2012.statistical_quarter
+    LEFT JOIN traffic t2012 
+        ON t2012.statistical_quarter = p2012.statistical_quarter
        AND t2012.year = 2012
-    JOIN traffic t2025 
-        ON t2025.city_district = p2012.city_district
-       AND t2025.statistical_quarter = p2012.statistical_quarter
+    LEFT JOIN traffic t2025 
+        ON t2025.statistical_quarter = p2012.statistical_quarter
        AND t2025.year = 2025
     WHERE p2012.year = 2012
 ),
@@ -142,3 +139,19 @@ SELECT *
 FROM v_kpi1_quarter_stress_index
 ORDER BY district_id, quarter_name
 LIMIT 50;
+
+-- Check if Quarter table actually has duplicate street names
+SELECT street_name, COUNT(*) as count
+FROM Quarter
+GROUP BY street_name
+HAVING COUNT(*) > 1;
+
+-- If above returns nothing, check how many distinct (street_name, city_district) pairs exist
+SELECT COUNT(DISTINCT street_name) as unique_streets,
+       COUNT(*) as total_rows
+FROM Quarter;
+
+SELECT DISTINCT statistical_quarter, year
+FROM v_traffic_yearly
+WHERE statistical_quarter IN ('Langstrasse', 'Oberstrass', 'Witikon', 'Weinegg', 'Saatlen', 'Schwamendingen-Mitte')
+ORDER BY statistical_quarter, year;

@@ -1,0 +1,35 @@
+quarter_name,population_2012,population_2025,traffic_2012,traffic_2025,population_growth_pct,traffic_growth_pct,stress_index_pct,stress_classification
+Affoltern,24855,27212,14534495,15510455,9.5,6.7,-2.8,"Commuter pressure"
+Albisrieden,18999,23942,15081917,24298612,26.0,61.1,35.1,"Commuter pressure"
+Alt-Wiedikon,16109,18855,42152033,46707493,17.0,10.8,-6.2,"Commuter pressure"
+Altstetten,31438,36212,49993488,36458259,15.2,-27.1,-42.3,Balanced
+City,799,783,24367220,17779492,-2.0,-27.0,-25.0,Balanced
+Enge,8702,10004,6407661,16989166,15.0,165.1,150.2,"Commuter pressure"
+"Escher Wyss",3343,6319,50617778,35379121,89.0,-30.1,-119.1,"Residential pressure"
+Fluntern,7779,8873,17255103,20807230,14.1,20.6,6.5,"Commuter pressure"
+Friesenberg,10986,11123,2862166,2551764,1.2,-10.8,-12.1,"Commuter pressure"
+Gewerbeschule,9824,9516,7348846,4574026,-3.1,-37.8,-34.6,Balanced
+Hard,12994,12905,32431434,26771181,-0.7,-17.5,-16.8,Balanced
+Hirslanden,7131,7632,10776264,7725910,7.0,-28.3,-35.3,Balanced
+Hirzenbach,11404,12657,29424247,26655872,11.0,-9.4,-20.4,Balanced
+Hochschulen,673,681,53764914,37364143,1.2,-30.5,-31.7,Balanced
+Höngg,21537,24891,11740532,11794765,15.6,0.5,-15.1,Balanced
+Hottingen,10447,11588,3208269,2715324,10.9,-15.4,-26.3,Balanced
+Langstrasse,10560,11932,0,0,13.0,NULL,NULL,"Insufficient data"
+Leimbach,5354,6358,4366377,3117471,18.8,-28.6,-47.4,"Residential pressure"
+Lindenhof,935,1011,4507353,2803953,8.1,-37.8,-45.9,Balanced
+Mühlebach,5745,6454,4193892,3118488,12.3,-25.6,-38.0,Balanced
+Oberstrass,10308,11103,0,0,7.7,NULL,NULL,"Insufficient data"
+Oerlikon,21331,24126,48525973,47645077,13.1,-1.8,-14.9,"Commuter pressure"
+Rathaus,3164,3257,4904046,3430513,2.9,-30.0,-33.0,Balanced
+Saatlen,7118,8838,0,3078389,24.2,NULL,NULL,"Insufficient data"
+Schwamendingen-Mitte,10934,11300,0,0,3.3,NULL,NULL,"Insufficient data"
+Seebach,23310,29361,5723329,5276208,26.0,-7.8,-33.8,Balanced
+Seefeld,4916,5859,9341695,7779042,19.2,-16.7,-35.9,Balanced
+Sihlfeld,20831,21488,13303783,11179045,3.2,-16.0,-19.1,Balanced
+Unterstrass,21442,25503,12195039,10860160,18.9,-10.9,-29.9,Balanced
+Weinegg,4783,5710,0,1459976,19.4,NULL,NULL,"Insufficient data"
+Werd,4195,4622,2337374,1999520,10.2,-14.5,-24.6,Balanced
+Wipkingen,15791,16713,35979074,34617183,5.8,-3.8,-9.6,"Commuter pressure"
+Witikon,10246,11928,0,2115727,16.4,NULL,NULL,"Insufficient data"
+Wollishofen,16029,22053,4671995,3839989,37.6,-17.8,-55.4,"Residential pressure"
