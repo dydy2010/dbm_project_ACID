@@ -1,7 +1,7 @@
 -- OPTIMIZED VERSION: Replaced YEAR(tm.timestamp) with date range (SARGable predicate)
 -- This allows the index on timestamp to be used instead of full table scan
 
-CREATE VIEW v_kpi2_bottlenecks AS
+CREATE OR REPLACE VIEW v_kpi2_bottlenecks AS
 SELECT
     cs.counting_site_name,
     CONCAT(LPAD(peak.hour, 2, '0'), ':00') AS peak_hour,

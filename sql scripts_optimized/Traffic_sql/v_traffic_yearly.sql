@@ -1,7 +1,7 @@
 -- OPTIMIZED VERSION: Added WHERE clause to filter by year range (SARGable predicate)
 -- This allows the index on timestamp to be used, reducing full table scans
 
-CREATE VIEW v_traffic_yearly AS
+CREATE OR REPLACE VIEW v_traffic_yearly AS
 SELECT
     YEAR(trafficmeasurement.timestamp) AS year,
     countingsite.counting_site_id,
