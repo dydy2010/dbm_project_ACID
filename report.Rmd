@@ -85,6 +85,10 @@ Sample output:
 | 1        | 15.2%        | 8.3%             | -6.9%        | Balanced       |
 | 2        | 12.5%        | 22.1%            | +9.6%        | Commuter Hub   |
 
+```{r kpi1_result_screenshot, echo=FALSE, out.width="100%", fig.cap="MySQL Workbench result grid for the stress-index query (KPI 1). The classification column highlights commuter vs. residential pressure zones."}
+knitr::include_graphics("materials_for_report_later/screenshots/pressure_index_query_result_screenshot_kpi1.png")
+```
+
 ## KPI 2: Peak-Hour Bottleneck Identification
 
 **Purpose.** Detect counting sites where peak-hour traffic consistently exceeds capacity.
@@ -158,33 +162,65 @@ The dominance share expresses how much of the total site traffic flows into that
 
 Together, these five KPIs provide a structured, predefined guideline for our project and analysis.
 
+# Query Performance Optimization for Metabase & Database
+
+While building the KPIs we quickly noticed that runtime is long on the largest traffic views, and related views, ranging from 2-10mins for one view query.
+Following the guidelines from the *SQL Performance* lecture (5.1 presentation + 5.5 exercise), we created an optimized version of the SQL views that helps with re-execution of sql scripts and metabase operations.
+
+## Original Scripts Problem Diagnosis
+
+- **Non-SARGable filters** such as `YEAR(timestamp)` forced full table scans across ~22M traffic rows.
+- **Missing composite indexes** meant that the database had to sort and scan even when we filtered by `measurement_site_id`.
+- **Metabase query plan** showed `type = ALL`, confirming that the optimizer could not use our columns efficiently.
+
+## Actions Taken
+
+1. **Created targeted indexes** (`sql scripts_optimized/9_create_indexes_performance.sql`):
+   ```sql
+   CREATE INDEX idx_tm_measurement_site_id ON TrafficMeasurement(measurement_site_id);
+   CREATE INDEX idx_tm_timestamp          ON TrafficMeasurement(timestamp);
+   ```
+   These two lines (run once) already bring query time from minutes to seconds.
+
+2. **Rewrote the heavy views with SARGable predicates** (files stored in `appendix`):
+   - `v_traffic_yearly.sql`
+   - `v_traffic_city_yearly.sql`
+   - `v_kpi2_bottlenecks.sql`
+   - `v_kpi3_dominant_direction.sql`
+
+   Example (KPI 2 bottlenecks):
+   ```sql
+   WHERE tm.timestamp >= '2023-01-01'
+     AND tm.timestamp <  '2026-01-01'
+   ```
+   Replacing `YEAR(tm.timestamp)` with a date range lets MySQL use the timestamp index (lecture example of SARGable).
+
+3. **Explanation helper** – `sql scripts_optimized/run_explain_checks.sql` contains `EXPLAIN` statements for each KPI view. After running the indexes + views we expect `type = range` or `ref`, never `ALL`.
+
+## Result
+
+- Re-execution of script for views in database now refresh within a few seconds, because every KPI view hits indexed columns or pre-aggregated rows.
+- The optimization package is reproducible: run the index script, rerun the four optimized views, then sync Metabase.
+- All scripts are documented in git repository and appendix.
+
+```{r index_runtime_screenshot, echo=FALSE, out.width="100%", fig.cap="MySQL Workbench action log while creating the new indexes. Even on the full dataset the statements finish within seconds, which validates the low overhead of the optimization step."}
+knitr::include_graphics("materials_for_report_later/screenshots/time_runned_efficient_index_script.png")
+```
+
 # Data Model & Database Schema
 
 ## Data Preprocessing & Preparation
 
-- Hourly **traffic count** data, **address** data (inkluding city district and quarter) and **population** data from the City of Zurich’s open data portal was collected.
+- Hourly **traffic count** data, **address** data (including city district and quarter) and **population** data from the City of Zurich’s open data portal was collected.
 - The raw datasets consisted of multiple CSV files (2012–2025).
 
 ### Raw Dataset Columns: Traffic Data
 
-- MSID
-- MSName
-- ZSID
-- ZSName
-- Achse
-- HNr
-- Hoehe
-- EKoord
-- NKoord
-- Richtung
-- Knummer
-- Kname
-- AnzDetektoren
-- D1ID–D4ID
-- MessungDatZeit
-- LieferDat
-- AnzFahrzeuge
-- AnzFahrzeugeStatus
+| Field Group | Columns |
+|-------------|---------|
+| Identifiers & geometry | MSID, MSName, ZSID, ZSName, Achse, HNr, Hoehe, EKoord, NKoord, Richtung |
+| Site metadata | Knummer, Kname, AnzDetektoren, D1ID–D4ID |
+| Measurement facts | MessungDatZeit, LieferDat, AnzFahrzeuge, AnzFahrzeugeStatus |
 
 Because the raw dataset included a mixture of analytical attributes and highly technical metadata, each field was examined to determine its relevance for traffic-flow analysis. The review was guided by the perspective of the City of Zurich’s urban planning department, which is primarily interested in temporal and spatial traffic patterns at specific locations and intersections.
 
@@ -218,18 +254,13 @@ All fields describing the measurement location, the measurement configuration, a
 
 The raw quarter dataset contained address-level information used by the City of Zurich for administrative and statistical purposes. The fields included:
 
-- adresse
-- anzahl_fla_projektiert
-- anzahl_fla_real
-- flaeche_projektiert
-- flaeche_real
-- flaeche_total
-- gwr_egid
-- hausnummer
-- lokalisationsname
-- objectid
-- stadtkreis
-- statistisches_quartier
+| Column | Description |
+|--------|-------------|
+| adresse, hausnummer, lokalisationsname | Address string and location name |
+| anzahl_fla_projektiert, anzahl_fla_real | Planned vs. realized number of flats |
+| flaeche_projektiert, flaeche_real, flaeche_total | Planned, realized, and total area |
+| gwr_egid, objectid | Official identifiers |
+| stadtkreis, statistisches_quartier | District & quarter keys |
 
 #### Cleaning and Transformation
 
@@ -312,7 +343,7 @@ To prepare the dataset for integration and analysis, several cleaning and normal
 The cleaned and harmonised datasets were integrated into a relational data model that reflects the structure of Zurich’s traffic measurement infrastructure, its geographic units, and the associated demographic information. The final model was created in *dbdiagram.io* and is shown in the figure below.
 
 ```{r erd, echo=FALSE, out.width="100%", fig.cap="Entity–Relationship Diagram of the integrated Traffic–Quarter–Population model."}
-knitr::include_graphics("materials_for_report_later/erd_traffic.png")
+knitr::include_graphics("materials_for_report_later/screenshots/erd_traffic.png")
 ```
 
 ### Overview
@@ -405,11 +436,12 @@ In the final implementation, sex_code and origin_code are still conceptually lin
 
 ### Final TrafficMeasurement Table
 
-The TrafficMeasurement table contains more than 21 million hourly traffic observations and was therefore implemented without a surrogate primary key:
+The TrafficMeasurement table contains more than 21 million hourly traffic observations. A surrogate primary key (`traffic_measurement_id`) was added for row identification:
 
 ```sql
 CREATE TABLE TrafficMeasurement (
-    measurement_site_id      VARCHAR(255),
+    traffic_measurement_id   INT AUTO_INCREMENT PRIMARY KEY,
+    measurement_site_id      VARCHAR(50),
     timestamp                DATETIME,
     vehicle_count            INT,
     vehicle_count_status     VARCHAR(50),
@@ -694,9 +726,16 @@ ORDER BY p.year;
 
 These lightweight analytical views provide a computationally efficient interface for exploring long-term trends and form the foundation for the project’s line chart visualizing the development of population and traffic between 2012 and 2025.
 
-## Stress Index for KPI1 (--> Dongy)
+## Stress Index for KPI1
 
-text text text
+To compare district-level mobility growth with demographic trends we implemented `v_kpi1_quarter_stress_index_new`. The view follows four steps:
+
+1. **Aggregate inputs.** `v_population_yearly` and `v_traffic_yearly` are rolled up by `city_district` and `statistical_quarter` for 2012 and 2025. This gives us `pop_total_2012`, `pop_total_2025`, `traffic_2012`, and `traffic_2025`.
+2. **Pair the years.** We join the 2012 rows with the 2025 rows for the same quarter. If a district is missing traffic data (e.g., Langstrasse in 2012), we impute values using the official totals provided by the city (the CASE expressions in the script).
+3. **Compute growth rates.** Population and traffic growth are both expressed as percentages. The stress index is simply `traffic_growth_pct – population_growth_pct`, which mirrors the definition from the business case.
+4. **Classify pressure.** A `NTILE(4)` window function assigns quartiles; quartile 4 is “commuter pressure”, quartile 1 is “residential pressure”, and the middle quartiles are labelled “balanced”.
+
+The resulting view returns one row per quarter with the raw counts, growth percentages, stress index, and a human-readable classification. Because it operates on the optimized yearly views, it runs quickly and feeds directly into the Metabase stress-index map.
 
 ## Peak-Hour Bottleneck Analysis for KPI2
 
@@ -704,7 +743,10 @@ To identify structurally congested road sections, KPI 2 determines the typical p
 
 A threshold of 700 vehicles/hour is used to classify capacity pressure:
 
-700 → Bottleneck / 700 → Normal
+| Average Volume | Classification |
+|----------------|----------------|
+| > 700          | Bottleneck     |
+| ≤ 700          | Normal         |
 
 This method avoids single-day outliers and captures recurring rush-hour patterns. An SQL view (`v_kpi2_bottlenecks`) was created to operationalise this logic, returning each site’s peak hour, the corresponding average volume, and the congestion status.
 
@@ -806,8 +848,158 @@ WHERE rn = 1
 ORDER BY dominance_share DESC;
 ```
 
-# Efficiency & Query Performance
-- **place holder**: 
+# Appendix E: Efficiency & Query Performance Scripts
+
+This appendix collects the SQL snippets used to speed up Metabase dashboards.  
+Each script lives in `sql scripts_optimized/` inside the repository so that future team members can rerun them before refreshing the dashboards.
+
+## E.1 Index Creation (Run Once)
+
+```sql
+-- File: sql scripts_optimized/9_create_indexes_performance.sql
+USE traffic_population_zh;
+
+-- TrafficMeasurement indexes
+CREATE INDEX idx_tm_timestamp          ON TrafficMeasurement(timestamp);
+CREATE INDEX idx_tm_measurement_site_id ON TrafficMeasurement(measurement_site_id);
+CREATE INDEX idx_tm_composite           ON TrafficMeasurement(measurement_site_id, timestamp);
+
+-- MeasurementSite index
+CREATE INDEX idx_ms_counting_site_id ON MeasurementSite(counting_site_id);
+
+-- Population indexes
+CREATE INDEX idx_pop_reference_date     ON Population(reference_date_year);
+CREATE INDEX idx_pop_district_quarter   ON Population(city_district, statistical_quarter);
+CREATE INDEX idx_pop_composite          ON Population(city_district, statistical_quarter, reference_date_year);
+
+-- Quarter indexes
+CREATE INDEX idx_quarter_street   ON Quarter(street_name);
+CREATE INDEX idx_quarter_district ON Quarter(city_district);
+```
+
+## E.2 Optimized Views (Run after the index script)
+
+```sql
+-- File: sql scripts_optimized/Traffic_sql/v_traffic_yearly.sql
+CREATE OR REPLACE VIEW v_traffic_yearly AS
+SELECT
+    YEAR(tm.timestamp) AS year,
+    cs.counting_site_id,
+    cs.counting_site_name,
+    ms.measurement_site_id,
+    ms.measurement_site_name,
+    ms.direction,
+    q.city_district,
+    q.statistical_quarter,
+    SUM(tm.vehicle_count) AS yearly_vehicle_count
+FROM trafficmeasurement tm
+JOIN measurementsite ms ON tm.measurement_site_id = ms.measurement_site_id
+JOIN countingsite cs    ON ms.counting_site_id    = cs.counting_site_id
+JOIN quarter q          ON cs.counting_site_name  = q.street_name
+WHERE tm.timestamp >= '2012-01-01'
+  AND tm.timestamp <  '2026-01-01'
+GROUP BY
+    YEAR(tm.timestamp),
+    cs.counting_site_id,
+    cs.counting_site_name,
+    ms.measurement_site_id,
+    ms.measurement_site_name,
+    ms.direction,
+    q.city_district,
+    q.statistical_quarter;
+```
+
+```sql
+-- File: sql scripts_optimized/Traffic_sql/v_traffic_city_yearly.sql
+CREATE OR REPLACE VIEW v_traffic_city_yearly AS
+SELECT
+    year,
+    AVG(site_avg) AS avg_vehicle_count_city
+FROM (
+    SELECT
+        cs.counting_site_id,
+        YEAR(tm.timestamp) AS year,
+        AVG(tm.vehicle_count) AS site_avg
+    FROM trafficmeasurement tm
+    JOIN measurementsite ms ON tm.measurement_site_id = ms.measurement_site_id
+    JOIN countingsite cs    ON ms.counting_site_id    = cs.counting_site_id
+    WHERE tm.timestamp >= '2012-01-01'
+      AND tm.timestamp <  '2026-01-01'
+    GROUP BY cs.counting_site_id, YEAR(tm.timestamp)
+) s
+GROUP BY year
+ORDER BY year;
+```
+
+```sql
+-- File: sql scripts_optimized/Traffic_sql/v_kpi2_bottlenecks.sql
+CREATE OR REPLACE VIEW v_kpi2_bottlenecks AS
+SELECT
+    cs.counting_site_name,
+    CONCAT(LPAD(peak.hour, 2, '0'), ':00') AS peak_hour,
+    ROUND(peak.avg_volume, 0) AS avg_volume,
+    CASE
+        WHEN peak.avg_volume > 700 THEN 'Bottleneck'
+        ELSE 'Normal'
+    END AS status
+FROM (
+    SELECT
+        cs.counting_site_id,
+        HOUR(tm.timestamp) AS hour,
+        AVG(tm.vehicle_count) AS avg_volume,
+        ROW_NUMBER() OVER (
+            PARTITION BY cs.counting_site_id
+            ORDER BY AVG(tm.vehicle_count) DESC
+        ) AS rn
+    FROM trafficmeasurement tm
+    JOIN measurementsite ms ON tm.measurement_site_id = ms.measurement_site_id
+    JOIN countingsite cs    ON ms.counting_site_id    = cs.counting_site_id
+    WHERE tm.timestamp >= '2023-01-01'
+      AND tm.timestamp <  '2026-01-01'
+    GROUP BY cs.counting_site_id, HOUR(tm.timestamp)
+) peak
+JOIN countingsite cs ON peak.counting_site_id = cs.counting_site_id
+WHERE peak.rn = 1
+ORDER BY peak.avg_volume DESC;
+```
+
+```sql
+-- File: sql scripts_optimized/Traffic_sql/v_kpi3_dominant_direction.sql
+CREATE OR REPLACE VIEW v_kpi3_dominant_direction AS
+WITH direction_totals AS (
+    SELECT
+        cs.counting_site_name,
+        ms.direction,
+        SUM(tm.vehicle_count) AS direction_volume
+    FROM trafficmeasurement tm
+    JOIN measurementsite ms ON tm.measurement_site_id = ms.measurement_site_id
+    JOIN countingsite cs    ON ms.counting_site_id    = cs.counting_site_id
+    WHERE tm.timestamp >= '2023-01-01'
+      AND tm.timestamp <  '2026-01-01'
+    GROUP BY cs.counting_site_name, ms.direction
+),
+site_totals AS (
+    SELECT counting_site_name, SUM(direction_volume) AS total_volume
+    FROM direction_totals
+    GROUP BY counting_site_name
+)
+SELECT
+    dt.counting_site_name,
+    dt.direction AS dominant_direction,
+    dt.direction_volume AS dominant_volume,
+    st.total_volume,
+    dt.direction_volume / st.total_volume AS dominance_share
+FROM direction_totals dt
+JOIN site_totals st ON dt.counting_site_name = st.counting_site_name
+WHERE dt.direction_volume = (
+    SELECT MAX(direction_volume)
+    FROM direction_totals
+    WHERE counting_site_name = dt.counting_site_name
+)
+ORDER BY dominance_share DESC;
+```
+
+*Optional:* `summary_traffic_hourly.sql` is also stored in the same folder in case the pre-aggregation path is needed for very slow hardware.
 
 # Visualization & Decision Support
 - **place holder**: 
