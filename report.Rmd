@@ -746,7 +746,7 @@ A threshold of 700 vehicles/hour is used to classify capacity pressure:
 | Average Volume | Classification |
 |----------------|----------------|
 | > 700          | Bottleneck     |
-| ≤ 700          | Normal         |
+| <= 700         | Normal         |
 
 This method avoids single-day outliers and captures recurring rush-hour patterns. An SQL view (`v_kpi2_bottlenecks`) was created to operationalise this logic, returning each site’s peak hour, the corresponding average volume, and the congestion status.
 
