@@ -52,7 +52,7 @@ Only the following scripts were modified with **SARGable predicates** (replacing
 | View Name | Script Location | Purpose |
 |-----------|-----------------|---------|
 | `v_traffic_yearly` | `sql scripts_optimized/Traffic_sql/` (optimized) | Aggregates traffic data by year, used by KPI1 |
-| `v_traffic_city_yearly` | `sql scripts/Traffic_sql/` (original) | City-level traffic average, used by KPI0 |
+| `v_traffic_city_yearly` | `sql scripts_optimized/Traffic_sql/` (optimized) | City-level traffic average, used by KPI0 |
 | `v_population_yearly` | `sql scripts/Population_sql/` (original) | Population by quarter and year, used by KPI1 |
 | `v_population_city_yearly` | `sql scripts/Population_sql/` (original) | City-level population, used by KPI0 |
 
@@ -63,6 +63,7 @@ Only the following scripts were modified with **SARGable predicates** (replacing
 | View | Use Optimized? | Folder |
 |------|----------------|--------|
 | `v_traffic_yearly` | **Yes** | `sql scripts_optimized/Traffic_sql/` |
+| `v_traffic_city_yearly` | **Yes** | `sql scripts_optimized/Traffic_sql/` |
 | `v_kpi2_bottlenecks` | **Yes** | `sql scripts_optimized/Traffic_sql/` |
 | `v_kpi3_dominant_direction` | **Yes** | `sql scripts_optimized/Traffic_sql/` |
 | All other views | No | `sql scripts/` (original folder) |
