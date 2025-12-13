@@ -1,39 +1,28 @@
 -- OPTIMIZED VERSION: Replaced YEAR(tm.timestamp) with date range (SARGable predicate)
 -- This allows the index on timestamp to be used instead of full table scan
 
-CREATE OR REPLACE VIEW v_kpi2_bottlenecks AS
+
+WITH ranked_peak AS (
+    SELECT
+        sth.counting_site_id,
+        sth.hour_of_day,
+        sth.avg_volume,
+        ROW_NUMBER() OVER (
+            PARTITION BY sth.counting_site_id
+            ORDER BY sth.avg_volume DESC
+        ) AS rnCREATE OR REPLACE VIEW v_kpi2_bottlenecks AS
+    FROM summary_traffic_hourly sth
+)
 SELECT
     cs.counting_site_name,
-    CONCAT(LPAD(peak.hour, 2, '0'), ':00') AS peak_hour,
-    ROUND(peak.avg_volume, 0) AS avg_volume,
+    CONCAT(LPAD(r.hour_of_day, 2, '0'), ':00') AS peak_hour,
+    ROUND(r.avg_volume, 0) AS avg_volume,
     CASE
-        WHEN peak.avg_volume > 700 THEN 'Bottleneck'
+        WHEN r.avg_volume > 700 THEN 'Bottleneck'
         ELSE 'Normal'
     END AS status
-FROM (
-    SELECT
-        counting_site_id,
-        hour,
-        avg_volume,
-        ROW_NUMBER() OVER (
-            PARTITION BY counting_site_id
-            ORDER BY avg_volume DESC
-        ) AS rn
-    FROM (
-        SELECT
-            cs.counting_site_id,
-            HOUR(tm.timestamp) AS hour,
-            AVG(tm.vehicle_count) AS avg_volume
-        FROM trafficmeasurement tm
-        JOIN measurementsite ms 
-            ON tm.measurement_site_id = ms.measurement_site_id
-        JOIN countingsite cs
-            ON ms.counting_site_id = cs.counting_site_id
-        WHERE tm.timestamp >= '2023-01-01' AND tm.timestamp < '2026-01-01'
-        GROUP BY cs.counting_site_id, HOUR(tm.timestamp)
-    ) hourly_avgs
-) peak
+FROM ranked_peak r
 JOIN countingsite cs 
-    ON peak.counting_site_id = cs.counting_site_id
-WHERE peak.rn = 1
-ORDER BY peak.avg_volume DESC;
+    ON r.counting_site_id = cs.counting_site_id
+WHERE r.rn = 1
+ORDER BY r.avg_volume DESC;
