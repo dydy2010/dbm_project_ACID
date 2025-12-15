@@ -17,7 +17,7 @@ knit: rmarkdown::render
 knitr::opts_chunk$set(echo = FALSE)
 ```
 \newpage
-# Introduction & Context (Proposal)
+# Introduction & Context
 
 The City of Zurich faces growing challenges related to traffic congestion, mobility planning, and urban development. As the population increases and commuting patterns evolve, many intersections and arterial roads experience significant pressure, particularly during peak hours. Congestion affects not only travel times but also road safety, air quality, and the overall effectiveness of the city’s transport network.
 
@@ -25,9 +25,187 @@ Urban planning authorities must therefore make complex decisions about where to 
 
 To contribute to this goal, this project focuses on deriving meaningful insights and key performance indicators (KPIs) that can inform data-driven urban planning decisions in line with the OECD Data Value Cycle, which emphasizes the transformation of raw data into actionable value for public administration.
 
-# Project Idea & Use Case (Proposal)
+# Project Idea & Use Case
 
 To support Zurich’s urban planners in addressing congestion and mobility challenges, this project aims to transform traffic count data into meaningful indicators that can guide evidence-based decision-making. The central use case focuses on identifying traffic pressure points at intersections and understanding how traffic patterns vary by time, location, and direction.
+
+# Data Model & Database Schema
+
+## Data Preprocessing & Preparation
+
+- Hourly **traffic count** data, **address** data (including city district and quarter) and **population** data from the City of Zurich’s open data portal was collected.
+- The raw datasets consisted of multiple CSV files (2012–2025).
+
+### Raw Dataset Columns: Traffic Data
+
+| Field Group | Columns |
+|-------------|---------|
+| Identifiers & geometry | MSID, MSName, ZSID, ZSName, Achse, HNr, Hoehe, EKoord, NKoord, Richtung |
+| Site metadata | Knummer, Kname, AnzDetektoren, D1ID–D4ID |
+| Measurement facts | MessungDatZeit, LieferDat, AnzFahrzeuge, AnzFahrzeugeStatus |
+
+Because the raw dataset included a mixture of analytical attributes and highly technical metadata, each field was examined to determine its relevance for traffic-flow analysis. The review was guided by the perspective of the City of Zurich’s urban planning department, which is primarily interested in temporal and spatial traffic patterns at specific locations and intersections.
+
+### Removed Fields
+
+- **HNr**, due to inconsistent content.
+- **D1ID–D4ID**, as these detector identifiers are technical metadata without analytical value.
+- **LieferDat**, which is a delivery timestamp not required for traffic analysis.
+
+All fields describing the measurement location, the measurement configuration, and the traffic counts themselves were retained. To improve clarity and support further processing and database integration, the remaining column names were translated into English equivalents. In a further preprocessing step, several categorical values contained in German were translated to English. After all preprocessing steps were completed, the resulting cleaned dataset contained 21,721,493 rows and 14 columns.
+
+### Cleaned Traffic Dataset Columns
+
+- **measurement_site_id**: Unique technical identifier of the measurement site. A measurement site represents a specific traffic-flow direction or lane at a counting location.
+- **measurement_site_name**: Technical name of the measurement site. In this dataset, this field contains "Unknown" for all entries.
+- **counting_site_id**: Identifier of the counting site, representing the physical location where traffic measurements are collected.
+- **counting_site_name**: Human-readable name of the counting site, describing the location.
+- **axis**: Categorization of the counting site into a traffic axis (street).
+- **position_description**: A textual descriptor indicating where along the street segment the measurement site is located. Contains "Unknown" for many entries.
+- **east_coordinate**: The east coordinate of the measurement site in the Swiss CH1903+ / LV95 reference system.
+- **north_coordinate**: The north coordinate of the measurement site in the Swiss CH1903+ / LV95 reference system.
+- **direction**: The direction of traffic flow being measured (e.g., "inbound", "outbound").
+- **signal_id**: Identifier of the associated traffic signal or intersection controller regulating traffic at the measurement site.
+- **signal_name**: Name of the associated traffic signal or intersection.
+- **num_detectors**: Number of detectors installed at the measurement site.
+- **timestamp**: The timestamp indicating the start of the hourly measurement interval (ISO-8601 format).
+- **vehicle_count**: The number of vehicles recorded during the hourly measurement interval.
+- **vehicle_count_status**: Indicates how the vehicle count was produced: "Measured", "Missing", or "Imputed".
+
+### Raw Dataset Columns: Quarters
+
+The raw quarter dataset contained address-level information used by the City of Zurich for administrative and statistical purposes. The fields included:
+
+| Field Group | Columns |
+|-------------|---------|
+| Identifiers | gwr_egid, objectid |
+| Administrative units | stadtkreis, statistisches_quartier |
+| Location metadata | adresse, hausnummer, lokalisationsname |
+| Area metrics | flaeche_real, flaeche_projektiert, flaeche_total |
+| Spatial coverage counts | anzahl_fla_real, anzahl_fla_projektiert |
+
+#### Cleaning and Transformation
+
+To link traffic data with geographic units, the raw fields required several preprocessing steps:
+
+- **Address splitting and cleaning**: Street names and house numbers were embedded in a single free-text field (e.g., `"Heinrich-Federer-Strasse 12A"`, `"Widmerstrasse 88"`, `"Seeblickstrasse 17d"`). Using regular expressions, house numbers (including suffixes such as `12b`, `17d`) were removed, leaving a clean street-level identifier.
+
+- **Data-type normalisation**: `statistical_quarter` was normalised as a trimmed string. Inconsistent labels such as `"Schwamend.-Mitte"` were harmonised to `"Schwamendingen-Mitte"` to ensure joinability with the population dataset.
+  
+#### Additional Standardisation for Street Name Matching
+
+To ensure that traffic measurement locations could be linked reliably to the quarter dataset, several street names from the traffic dataset required manual standardisation. While most addresses were harmonised through regex-based cleaning, a small number of street names contained compound forms that could not be resolved automatically (e.g., combined street names, hyphenated patterns, or slash-separated names). These were corrected manually to create a consistent set of street identifiers.
+
+Examples of manual mappings include:
+
+- `Sood-/Leimbachstrasse` → `Soodstrasse`
+- `Tobelhof-/Dreiwiesenstrasse` → `Tobelhofstrasse`
+- `Manessestrasse - Schimmelstrasse` → `Manessestrasse`
+- `Angererstrasse Tunnelstrasse` → `Angererstrasse`
+
+Additionally, several counting site names referred to non-street features such as bridges, tunnels or motorway segments (e.g., `Quaibrücke, Milchbucktunnel, A1L`). For these cases, the closest corresponding street-level name from the quarter dataset was identified manually.
+
+These manual adjustments were essential to achieve a fully joinable set of street names between the traffic and quarter datasets and ensured that all counting sites could be assigned to a statistical quarter.
+
+#### Cleaned Quarter Dataset Columns
+
+- **address**: Original full address as provided in the raw data.
+- **house_number**: Extracted house number component (kept for completeness).
+- **street_name**: Cleaned and standardised street name used as the spatial key.
+- **city_district**: Official Zurich district number (1–12).
+- **statistical_quarter**: Statistical quarter (“Statistisches Quartier”) providing fine-grained spatial units.
+
+The cleaned quarter dataset provides the geographic reference layer used to integrate traffic measurements with demographic information.
+
+### Raw Dataset Columns: Population
+
+The raw population dataset consisted of quarterly demographic counts published by the City of Zurich. The original fields included:
+
+| Field Group | Columns |
+|-------------|---------|
+| Reference date | StichtagDatJahr, StichtagDatMM, StichtagDatMonat, StichtagDat |
+| Demographic attributes | SexCd, SexLang, HerkunftCd, HerkunftLang |
+| Administrative units | KreisCd, KreisLang, QuarCd, QuarLang |
+| Age group metadata | AlterV20ueber80Sort_noDM, AlterV20ueber80Cd_noDM, AlterV20ueber80Kurz_noDM |
+| Publication metadata | DatenstandCd, DatenstandLang |
+| Population measure | AnzBestWir |
+
+#### Cleaning and Transformation
+
+To prepare the dataset for integration and analysis, several cleaning and normalisation steps were performed:
+
+- **Column reduction**: Multiple date-related fields were redundant. `StichtagDatJahr` was retained and renamed to `reference_date_year`.
+- **Deleting**: Age-group columns and metadata fields were removed.
+- **Category translation and code preservation**: German labels for sex and origin (e.g., `"männlich"`, `"weiblich"`, `"Schweizer*in"`, `"Ausländer*in"`) were translated to English. The numeric codes (`SexCd`, `HerkunftCd`) were preserved and renamed to `sex_code` and `origin_code`, as these form stable keys for later relational integration.
+- **Data-type normalisation**: `QuarLang` was cleaned and normalised (whitespace trimming, harmonisation of abbreviations), then renamed to `statistical_quarter`.
+
+#### Cleaned Population Dataset Columns
+
+- **reference_date_year**: Year of the population count, extracted from the quarterly reference date.
+- **sex_code**: Numeric code representing the sex category.
+- **sex**: Human-readable sex label derived from `sex_code`, such as "male", "female", or "unknown".
+- **origin_code**: Numeric code representing the origin category.
+- **origin**: Human-readable origin label derived from `origin_code`, such as "Swiss" or "Foreign".
+- **city_district**: Zurich district number (1–12).
+- **statistical_quarter**: Statistical quarter (“Statistisches Quartier”), harmonised to match the Quarter dataset.
+- **population_count**: Number of residents in the demographic segment.
+
+## Entity–Relationship Model
+
+The cleaned and harmonised datasets were integrated into a relational data model that adheres to the principles of third normal form (3NF) by separating measurement facts from descriptive and geographic attributes. The model reflects the structure of Zurich’s traffic measurement infrastructure, its geographic units, and the associated demographic information. The final schema was created in dbdiagram.io and is shown in the figure below.
+
+```{r erd, echo=FALSE, out.width="100%", fig.cap="Entity–Relationship Diagram of the integrated Traffic–Quarter–Population model."}
+knitr::include_graphics("materials_for_report_later/screenshots/erd_traffic.png")
+```
+
+### Overview
+
+The model is centred around the **traffic measurement process**, which is represented by three core entities:
+
+- **CountingSite**  
+  Represents a physical traffic counting location (e.g., a road segment or intersection). It stores geographic coordinates, the human-readable location name, and the traffic axis.
+
+- **MeasurementSite**  
+  Represents a directional or lane-specific measurement point located within a counting site. Each measurement site records traffic in a single direction and may contain multiple detectors.
+
+- **TrafficMeasurement**  
+  Stores the hourly measured vehicle counts, including measurement status and timestamp.
+
+These three entities form a 1:n:n hierarchy:  
+**CountingSite → MeasurementSite → TrafficMeasurement**.
+
+### Traffic Signal Dimension
+
+Some counting sites are associated with a traffic signal or intersection controller. This metadata is normalised into the **TrafficSignal** table. Since not every counting site is linked to a signal, the relationship is **optional**.
+
+### Geographic Dimension: Quarter
+
+The **Quarter** table provides spatial context by assigning each cleaned street and address to:
+
+- a **city district** (1–12), and
+- a **statistical quarter** (fine-grained geographic unit).
+
+Counting sites may refer to road infrastructure that is not part of the standard quarter dataset (e.g., motorway segments, tunnels, bridges). Therefore, the relationship between **CountingSite** and **Quarter** is modelled as **optional (0–1)**.
+
+### Demographic Dimension: Population
+
+The **Population** table contains demographic counts by sex, origin, and year, referenced at both district and statistical-quarter level. To normalise categorical attributes, the model includes two lookup tables:
+
+- **Sex** (sex_code → sex)
+- **Origin** (origin_code → origin)
+
+Every population record references a sex and origin category (mandatory), while the link to a statistical quarter is **optional**. This reflects the presence of entries such as *“Unbekannt (Stadt Zürich)”*, which cannot be assigned to a specific spatial unit.
+
+### Optional Relationships (`--0--<`)
+
+Several foreign-key relationships are intentionally optional to reflect real characteristics of the source data:
+
+- Some counting sites lie outside the quarter system.
+- Some population entries cannot be mapped to a statistical quarter.
+- Not all counting sites are linked to a traffic signal.
+
+By modelling these relationships as optional, the ERD mirrors the true structure and limitations of the underlying open data and avoids enforcing artificial or incorrect mappings.
+
 
 # Key Performance Indicators (KPIs)
 
@@ -35,7 +213,7 @@ The KPI suite was first developed collaboratively by the team to ensure that eve
 
 ## KPI 0: Citywide Trend Overview (Population & Traffic)
 
-**Purpose.** Before diving into details, a high-level overview of Zurich’s development provides essential context. KPI 0 offers a citywide perspective by comparing the yearly population totals with the corresponding yearly traffic intensity. This helps identify whether mobility pressure is rising proportionally to demographic growth—or whether traffic is increasing at a faster pace than the population.
+**Purpose.** Before diving into details, a high-level overview of Zurich’s development provides essential context. KPI 0 offers a citywide perspective by comparing the yearly population totals with the corresponding yearly traffic intensity. This helps identify whether mobility pressure is rising proportionally to demographic growth, or whether traffic is increasing at a faster pace than the population.
 
 This top-level KPI serves as an “orientation layer”: it highlights whether Zurich's population and mobility demands grow in sync across the entire analysis period (2012–2025) and sets the stage for the more granular KPIs that follow.
 
@@ -162,239 +340,6 @@ The dominance share expresses how much of the total site traffic flows into that
 
 Together, these five KPIs provide a structured, predefined guideline for our project and analysis.
 
-# Query Performance Optimization for Metabase & Database
-
-While building the KPIs we quickly noticed that runtime is long on the largest traffic views, and related views, ranging from 2-10mins for one view query.
-Following the guidelines from the *SQL Performance* lecture (5.1 presentation + 5.5 exercise), we created an optimized version of the SQL views that helps with re-execution of sql scripts and metabase operations.
-
-## Original Scripts Problem Diagnosis
-
-- **Non-SARGable filters** such as `YEAR(timestamp)` forced full table scans across ~22M traffic rows.
-- **Missing composite indexes** meant that the database had to sort and scan even when we filtered by `measurement_site_id`.
-- **Metabase query plan** showed `type = ALL`, confirming that the optimizer could not use our columns efficiently.
-
-## Actions Taken
-
-1. **Created targeted indexes** (`sql scripts_optimized/9_create_indexes_performance.sql`):
-   ```sql
-   CREATE INDEX idx_tm_measurement_site_id ON TrafficMeasurement(measurement_site_id);
-   CREATE INDEX idx_tm_timestamp          ON TrafficMeasurement(timestamp);
-   ```
-   These two lines (run once) already bring query time from minutes to seconds.
-
-2. **Rewrote the heavy views with SARGable predicates** (files stored in `appendix`):
-   - `v_traffic_yearly.sql`
-   - `v_traffic_city_yearly.sql`
-   - `v_kpi2_bottlenecks.sql`
-   - `v_kpi3_dominant_direction.sql`
-
-   Example (KPI 2 bottlenecks):
-   ```sql
-   WHERE tm.timestamp >= '2023-01-01'
-     AND tm.timestamp <  '2026-01-01'
-   ```
-   Replacing `YEAR(tm.timestamp)` with a date range lets MySQL use the timestamp index (lecture example of SARGable).
-
-3. **Explanation helper** – `sql scripts_optimized/run_explain_checks.sql` contains `EXPLAIN` statements for each KPI view. After running the indexes + views we expect `type = range` or `ref`, never `ALL`.
-
-## Result
-
-- Re-execution of script for views in database now refresh within a few seconds, because every KPI view hits indexed columns or pre-aggregated rows.
-- The optimization package is reproducible: run the index script, rerun the four optimized views, then sync Metabase.
-- All scripts are documented in git repository and appendix.
-
-```{r index_runtime_screenshot, echo=FALSE, out.width="100%", fig.cap="MySQL Workbench action log while creating the new indexes. Even on the full dataset the statements finish within seconds, which validates the low overhead of the optimization step."}
-knitr::include_graphics("materials_for_report_later/screenshots/time_runned_efficient_index_script.png")
-```
-
-# Data Model & Database Schema
-
-## Data Preprocessing & Preparation
-
-- Hourly **traffic count** data, **address** data (including city district and quarter) and **population** data from the City of Zurich’s open data portal was collected.
-- The raw datasets consisted of multiple CSV files (2012–2025).
-
-### Raw Dataset Columns: Traffic Data
-
-| Field Group | Columns |
-|-------------|---------|
-| Identifiers & geometry | MSID, MSName, ZSID, ZSName, Achse, HNr, Hoehe, EKoord, NKoord, Richtung |
-| Site metadata | Knummer, Kname, AnzDetektoren, D1ID–D4ID |
-| Measurement facts | MessungDatZeit, LieferDat, AnzFahrzeuge, AnzFahrzeugeStatus |
-
-Because the raw dataset included a mixture of analytical attributes and highly technical metadata, each field was examined to determine its relevance for traffic-flow analysis. The review was guided by the perspective of the City of Zurich’s urban planning department, which is primarily interested in temporal and spatial traffic patterns at specific locations and intersections.
-
-### Removed Fields
-
-- **HNr**, due to inconsistent content.
-- **D1ID–D4ID**, as these detector identifiers are technical metadata without analytical value.
-- **LieferDat**, which is a delivery timestamp not required for traffic analysis.
-
-All fields describing the measurement location, the measurement configuration, and the traffic counts themselves were retained. To improve clarity and support further processing and database integration, the remaining column names were translated into English equivalents. In a further preprocessing step, several categorical values contained in German were translated to English. After all preprocessing steps were completed, the resulting cleaned dataset contained 21,721,493 rows and 14 columns.
-
-### Cleaned Dataset Columns
-
-- **measurement_site_id**: Unique technical identifier of the measurement site. A measurement site represents a specific traffic-flow direction or lane at a counting location.
-- **measurement_site_name**: Technical name of the measurement site. In this dataset, this field contains "Unknown" for all entries.
-- **counting_site_id**: Identifier of the counting site, representing the physical location where traffic measurements are collected.
-- **counting_site_name**: Human-readable name of the counting site, describing the location (street).
-- **axis**: Categorization of the counting site into a traffic axis (street).
-- **position_description**: A textual descriptor indicating where along the street segment the measurement site is located. Contains "Unknown" for many entries.
-- **east_coordinate**: The east coordinate of the measurement site in the Swiss CH1903+ / LV95 reference system.
-- **north_coordinate**: The north coordinate of the measurement site in the Swiss CH1903+ / LV95 reference system.
-- **direction**: The direction of traffic flow being measured (e.g., "inbound", "outbound").
-- **signal_id**: Identifier of the associated traffic signal or intersection controller regulating traffic at the measurement site.
-- **signal_name**: Name of the associated traffic signal or intersection.
-- **num_detectors**: Number of detectors installed at the measurement site.
-- **timestamp**: The timestamp indicating the start of the hourly measurement interval (ISO-8601 format).
-- **vehicle_count**: The number of vehicles recorded during the hourly measurement interval.
-- **vehicle_count_status**: Indicates how the vehicle count was produced: "Measured", "Missing", or "Imputed".
-
-### Raw Dataset Columns: Quarters
-
-The raw quarter dataset contained address-level information used by the City of Zurich for administrative and statistical purposes. The fields included:
-
-| Column | Description |
-|--------|-------------|
-| adresse, hausnummer, lokalisationsname | Address string and location name |
-| anzahl_fla_projektiert, anzahl_fla_real | Planned vs. realized number of flats |
-| flaeche_projektiert, flaeche_real, flaeche_total | Planned, realized, and total area |
-| gwr_egid, objectid | Official identifiers |
-| stadtkreis, statistisches_quartier | District & quarter keys |
-
-#### Cleaning and Transformation
-
-To link traffic data with geographic units, the raw fields required several preprocessing steps:
-
-- **Address splitting and cleaning**  
-  Street names and house numbers were embedded in a single free-text field (e.g., `"Heinrich-Federer-Strasse 12A"`, `"Widmerstrasse 88"`, `"Seeblickstrasse 17d"`).  
-  Using regular expressions, house numbers (including suffixes such as `12b`, `17d`) were removed, leaving a clean street-level identifier.
-
-- **Data-type normalisation**  
-  `statistical_quarter` was normalised as a trimmed string. Inconsistent labels such as `"Schwamend.-Mitte"` were harmonised to `"Schwamendingen-Mitte"` to ensure joinability with the population dataset.
-  
-#### Additional Standardisation for Street Name Matching
-
-To ensure that traffic measurement locations could be linked reliably to the quarter dataset, several street names from the traffic dataset required manual standardisation. While most addresses were harmonised through regex-based cleaning, a small number of street names contained compound forms that could not be resolved automatically (e.g., combined street names, hyphenated patterns, or slash-separated names). These were corrected manually to create a consistent set of street identifiers.
-
-Examples of manual mappings include:
-
-- `Sood-/Leimbachstrasse` → `Soodstrasse`
-- `Tobelhof-/Dreiwiesenstrasse` → `Tobelhofstrasse`
-- `Manessestrasse - Schimmelstrasse` → `Manessestrasse`
-- `Angererstrasse Tunnelstrasse` → `Angererstrasse`
-
-Additionally, several counting site names referred to non-street features such as bridges, tunnels or motorway segments (e.g., *Quaibrücke*, *Milchbucktunnel*, *A1L*). For these cases, the closest corresponding street-level name from the quarter dataset was identified manually.
-
-These manual adjustments were essential to achieve a fully joinable set of street names between the traffic and quarter datasets and ensured that all counting sites could be assigned to a statistical quarter.
-
-#### Cleaned Quarter Dataset Columns
-
-- **address**: Original full address as provided in the raw data.
-- **house_number**: Extracted house number component (kept for completeness).
-- **street_name**: Cleaned and standardised street name used as the spatial key.
-- **city_district**: Official Zurich district number (1–12).
-- **statistical_quarter**: Statistical quarter (“Statistisches Quartier”) providing fine-grained spatial units.
-
-The cleaned quarter dataset provides the geographic reference layer used to integrate traffic measurements with demographic information.
-
-### Raw Dataset Columns: Population
-
-The raw population dataset consisted of quarterly demographic counts published by the City of Zurich. The original fields included:
-
-- **StichtagDatJahr**: Year of the reference date.
-- **StichtagDatMM**: Month of the reference date (numeric).
-- **StichtagDatMonat**: Month of the reference date (German label).
-- **StichtagDat**: Full reference date (e.g., "1998-03-31"), indicating quarterly population snapshots.
-- **SexCd** / **SexLang**: Numeric code and German label representing the sex category.
-- **AlterV20ueber80Sort_noDM**, **AlterV20ueber80Cd_noDM**, **AlterV20ueber80Kurz_noDM**: Age-group fields (not relevant for this project).
-- **HerkunftCd** / **HerkunftLang**: Numeric code and German label representing population origin.
-- **KreisCd** / **KreisLang**: District number and district name.
-- **QuarCd** / **QuarLang**: Statistical quarter code and label.
-- **DatenstandCd**, **DatenstandLang**: Metadata describing the publication state.
-- **AnzBestWir**: Population count.
-
-#### Cleaning and Transformation
-
-To prepare the dataset for integration and analysis, several cleaning and normalisation steps were performed:
-
-- **Column reduction**  
-  Multiple date-related fields were redundant. `StichtagDatJahr` was retained and renamed to `reference_date_year`.
-- Age-group columns and metadata fields were removed.
-- **Category translation and code preservation**  
-  German labels for sex and origin (e.g., `"männlich"`, `"weiblich"`, `"Schweizer*in"`, `"Ausländer*in"`) were translated to English.  
-  The numeric codes (`SexCd`, `HerkunftCd`) were preserved and renamed to `sex_code` and `origin_code`, as these form stable keys for later relational integration.
-- **Data-type normalisation**  
-  - `QuarLang` was cleaned and normalised (whitespace trimming, harmonisation of abbreviations), then renamed to `statistical_quarter`.
-
-#### Cleaned Population Dataset Columns
-
-- **reference_date_year**: Year of the population count, extracted from the quarterly reference date.
-- **sex_code**: Numeric code representing the sex category.
-- **sex**: Human-readable sex label derived from `sex_code`, such as "male", "female", or "unknown".
-- **origin_code**: Numeric code representing the origin category.
-- **origin**: Human-readable origin label derived from `origin_code`, such as "Swiss" or "Foreign".
-- **city_district**: Zurich district number (1–12).
-- **statistical_quarter**: Statistical quarter (“Statistisches Quartier”), harmonised to match the Quarter dataset.
-- **population_count**: Number of residents in the demographic segment.
-
-## Entity–Relationship Model
-
-The cleaned and harmonised datasets were integrated into a relational data model that reflects the structure of Zurich’s traffic measurement infrastructure, its geographic units, and the associated demographic information. The final model was created in *dbdiagram.io* and is shown in the figure below.
-
-```{r erd, echo=FALSE, out.width="100%", fig.cap="Entity–Relationship Diagram of the integrated Traffic–Quarter–Population model."}
-knitr::include_graphics("materials_for_report_later/screenshots/erd_traffic.png")
-```
-
-### Overview
-
-The model is centred around the **traffic measurement process**, which is represented by three core entities:
-
-- **CountingSite**  
-  Represents a physical traffic counting location (e.g., a road segment or intersection). It stores geographic coordinates, the human-readable location name, and the traffic axis.
-
-- **MeasurementSite**  
-  Represents a directional or lane-specific measurement point located within a counting site. Each measurement site records traffic in a single direction and may contain multiple detectors.
-
-- **TrafficMeasurement**  
-  Stores the hourly measured vehicle counts, including measurement status and timestamp.
-
-These three entities form a 1:n:n hierarchy:  
-**CountingSite → MeasurementSite → TrafficMeasurement**.
-
-### Traffic Signal Dimension
-
-Some counting sites are associated with a traffic signal or intersection controller. This metadata is normalised into the **TrafficSignal** table. Since not every counting site is linked to a signal, the relationship is **optional**.
-
-### Geographic Dimension: Quarter
-
-The **Quarter** table provides spatial context by assigning each cleaned street and address to:
-
-- a **city district** (1–12), and
-- a **statistical quarter** (fine-grained geographic unit).
-
-Counting sites may refer to road infrastructure that is not part of the standard quarter dataset (e.g., motorway segments, tunnels, bridges). Therefore, the relationship between **CountingSite** and **Quarter** is modelled as **optional (0–1)**.
-
-### Demographic Dimension: Population
-
-The **Population** table contains demographic counts by sex, origin, and year, referenced at both district and statistical-quarter level. To normalise categorical attributes, the model includes two lookup tables:
-
-- **Sex** (sex_code → sex)
-- **Origin** (origin_code → origin)
-
-Every population record references a sex and origin category (mandatory), while the link to a statistical quarter is **optional**. This reflects the presence of entries such as *“Unbekannt (Stadt Zürich)”*, which cannot be assigned to a specific spatial unit.
-
-### Optional Relationships (`--0--<`)
-
-Several foreign-key relationships are intentionally optional to reflect real characteristics of the source data:
-
-- Some counting sites lie outside the quarter system.
-- Some population entries cannot be mapped to a statistical quarter.
-- Not all counting sites are linked to a traffic signal.
-
-By modelling these relationships as optional, the ERD mirrors the true structure and limitations of the underlying open data and avoids enforcing artificial or incorrect mappings.
-
-
 # Loading & Transforming the Data
 
 ## Two-Stage Loading Strategy
@@ -419,16 +364,16 @@ The production schema was created based on the Entity-Relationship Diagram (ERD)
 
 ### Final Population Table
 
-The `Population` table functions as a fact table and does not require a surrogate primary key. It stores only essential attributes and references to dimension tables:
+The `Population` table functions as a fact table and therefore does not require a surrogate primary key. Each record is uniquely identified by the combination of reference date, demographic attributes, and spatial unit, which defines the natural grain of the data.
 
 ```sql
 CREATE TABLE Population (
-    reference_date_year DATETIME,
-    sex_code            VARCHAR(50),
-    origin_code         VARCHAR(50),
-    city_district       INT,
-    statistical_quarter VARCHAR(255),
-    population_count    INT
+    reference_date_year DATETIME NOT NULL,
+    sex_code            VARCHAR(50) NOT NULL,
+    origin_code         VARCHAR(50) NOT NULL,
+    city_district       INT NOT NULL,
+    statistical_quarter VARCHAR(255) NOT NULL,
+    population_count    INT NOT NULL
 );
 ```
 
@@ -439,18 +384,18 @@ In the final implementation, sex_code and origin_code are still conceptually lin
 The TrafficMeasurement table contains more than 21 million hourly traffic observations. A surrogate primary key (`traffic_measurement_id`) was added for row identification:
 
 ```sql
-CREATE TABLE TrafficMeasurement (
-    traffic_measurement_id   INT AUTO_INCREMENT PRIMARY KEY,
-    measurement_site_id      VARCHAR(50),
-    timestamp                DATETIME,
-    vehicle_count            INT,
-    vehicle_count_status     VARCHAR(50),
-    FOREIGN KEY (measurement_site_id) REFERENCES MeasurementSite(measurement_site_id)
+CCREATE TABLE TrafficMeasurement (
+    traffic_measurement_id INT AUTO_INCREMENT PRIMARY KEY,
+    measurement_site_id    VARCHAR(50) NOT NULL,
+    timestamp              DATETIME NOT NULL,
+    vehicle_count          INT NULL,
+    vehicle_count_status   VARCHAR(50) NOT NULL,
+    FOREIGN KEY (measurement_site_id)
+        REFERENCES MeasurementSite(measurement_site_id)
 );
 ```
 
-Lookup and dimension tables were created first to ensure that all foreign key dependencies were satisfied before loading the fact tables.
-
+NULL and NOT NULL constraints were defined explicitly to reflect domain semantics and data completeness assumptions. Lookup and dimension tables were created first to ensure that all foreign key dependencies were satisfied before loading the fact tables. Complete ETL scripts can be found in Appendices A to D.
 
 ### Loading Raw Data into Staging Tables
 
@@ -465,8 +410,7 @@ IS NOT NULL AS can_read;
 
 ***Bulk Loading with LOAD DATA LOCAL INFILE***
 
-CSV data was imported into staging tables using MySQL’s LOAD DATA LOCAL INFILE command.
-Example for the population dataset:
+CSV data was imported into staging tables using MySQL’s LOAD DATA LOCAL INFILE command. Example for the population dataset:
 
 ```sql
 LOAD DATA LOCAL INFILE 'C:\\Users\\labadmin\\Downloads\\
@@ -540,6 +484,10 @@ DROP COLUMN origin;
 ```
 
 Foreign keys were then added to ensure referential integrity.
+
+```{r table_screenshot, echo=FALSE, out.width="40%", fig.cap="Relational database schema of the original data model in MySQL Workbench, illustrating the core entities."}
+knitr::include_graphics("materials_for_report_later/screenshots/tables1.png")
+```
 
 ### Challenges and Solutions
 
@@ -735,7 +683,73 @@ To compare district-level mobility growth with demographic trends we implemented
 3. **Compute growth rates.** Population and traffic growth are both expressed as percentages. The stress index is simply `traffic_growth_pct – population_growth_pct`, which mirrors the definition from the business case.
 4. **Classify pressure.** A `NTILE(4)` window function assigns quartiles; quartile 4 is “commuter pressure”, quartile 1 is “residential pressure”, and the middle quartiles are labelled “balanced”.
 
-The resulting view returns one row per quarter with the raw counts, growth percentages, stress index, and a human-readable classification. Because it operates on the optimized yearly views, it runs quickly and feeds directly into the Metabase stress-index map.
+The resulting view returns one row per quarter with the raw counts, growth percentages, stress index, and a human-readable classification. 
+
+During implementation, an initial version of the stress-index view relied on purely data-driven aggregation and filtering logic. However, this approach proved insufficient, as missing traffic measurements for entire counting sites in both the base year (2012) and, in a few cases, the comparison year (2025) resulted in persistent NULL values that could not be resolved through standard rescaling or aggregation techniques.
+
+To ensure a complete and comparable stress index across all statistical quarters, the original view was therefore replaced by the current implementation. The final version applies explicit, hard-coded imputation for a small number of clearly identified quarters and for both reference years where required. This guarantees that no NULL values remain in the final stress index and that all quarters can be consistently classified.
+
+The imputed traffic values were derived using spatial proximity and similarity assumptions. For each affected statistical quarter, reference values were inferred from adjacent quarters with comparable urban structure and traffic characteristics, under the assumption that neighbouring quarters exhibit similar traffic patterns. This approach reflects the spatial continuity of urban mobility and avoids the use of global averages that would ignore local traffic conditions.
+
+The imputation was applied conservatively and only to a small number of quarters with missing data. Its purpose is not to estimate precise traffic volumes at individual counting sites, but to ensure comparability and completeness of the stress index across all quarters.
+
+The following SQL excerpt highlights the core of the manual imputation of missing traffic values and the subsequent classification step (see Appendix E for full logic):
+
+```sql
+    -- Manual imputation for missing traffic values (2012)
+    CASE
+    WHEN statistical_quarter = 'Langstrasse'
+         AND traffic_2012 IS NULL
+    THEN 12019095
+
+    WHEN statistical_quarter = 'Oberstrass'
+         AND traffic_2012 IS NULL
+    THEN 8143882
+
+    WHEN statistical_quarter = 'Witikon'
+         AND traffic_2012 IS NULL
+    THEN 912447
+
+    WHEN statistical_quarter = 'Weinegg'
+         AND traffic_2012 IS NULL
+    THEN 887316
+
+    WHEN statistical_quarter = 'Albisrieden'
+         AND traffic_2012 IS NULL
+    THEN 10381552
+
+    WHEN statistical_quarter = 'Saatlen'
+         AND traffic_2012 IS NULL
+    THEN 648512
+
+    WHEN statistical_quarter = 'Schwamendingen-Mitte'
+         AND traffic_2012 IS NULL
+    THEN 534118
+
+    ELSE traffic_2012
+END AS traffic_2012_fixed,
+
+    -- Manual imputation for missing traffic values (2025)
+    CASE
+    WHEN statistical_quarter = 'Langstrasse'
+         AND traffic_2025 IS NULL
+    THEN 9874663
+
+    WHEN statistical_quarter = 'Oberstrass'
+         AND traffic_2025 IS NULL
+    THEN 9112940
+
+    WHEN statistical_quarter = 'Albisrieden'
+         AND traffic_2025 IS NULL
+    THEN 5982344
+
+    WHEN statistical_quarter = 'Schwamendingen-Mitte'
+         AND traffic_2025 IS NULL
+    THEN 608327
+
+    ELSE traffic_2025
+END AS traffic_2025_fixed
+```
 
 ## Peak-Hour Bottleneck Analysis for KPI2
 
@@ -848,158 +862,82 @@ WHERE rn = 1
 ORDER BY dominance_share DESC;
 ```
 
-# Appendix E: Efficiency & Query Performance Scripts
-
-This appendix collects the SQL snippets used to speed up Metabase dashboards.  
-Each script lives in `sql scripts_optimized/` inside the repository so that future team members can rerun them before refreshing the dashboards.
-
-## E.1 Index Creation (Run Once)
-
-```sql
--- File: sql scripts_optimized/9_create_indexes_performance.sql
-USE traffic_population_zh;
-
--- TrafficMeasurement indexes
-CREATE INDEX idx_tm_timestamp          ON TrafficMeasurement(timestamp);
-CREATE INDEX idx_tm_measurement_site_id ON TrafficMeasurement(measurement_site_id);
-CREATE INDEX idx_tm_composite           ON TrafficMeasurement(measurement_site_id, timestamp);
-
--- MeasurementSite index
-CREATE INDEX idx_ms_counting_site_id ON MeasurementSite(counting_site_id);
-
--- Population indexes
-CREATE INDEX idx_pop_reference_date     ON Population(reference_date_year);
-CREATE INDEX idx_pop_district_quarter   ON Population(city_district, statistical_quarter);
-CREATE INDEX idx_pop_composite          ON Population(city_district, statistical_quarter, reference_date_year);
-
--- Quarter indexes
-CREATE INDEX idx_quarter_street   ON Quarter(street_name);
-CREATE INDEX idx_quarter_district ON Quarter(city_district);
+```{r views_screenshot, echo=FALSE, out.width="45%", fig.cap="Overview of analytical SQL views in MySQL Workbench, including both KPI-specific and supporting views"}
+knitr::include_graphics("materials_for_report_later/screenshots/views.png")
 ```
 
-## E.2 Optimized Views (Run after the index script)
+# Query Performance Optimization for Metabase & Database
+
+While building the KPIs we quickly noticed that runtime is long on the largest traffic views, and related views, ranging from 2-10mins for one view query.
+Following the guidelines from the *SQL Performance* lecture (5.1 presentation + 5.5 exercise), we created an optimized version of the SQL views that helps with re-execution of SQL scripts and Metabase operations.
+
+## Original Scripts Problem Diagnosis
+
+- **Non-SARGable filters** such as `YEAR(timestamp)` forced full table scans across ~22M traffic rows.
+- **Missing composite indexes** meant that the database had to sort and scan even when we filtered by `measurement_site_id`.
+- **Metabase query plan** showed `type = ALL`, confirming that the optimizer could not use our columns efficiently.
+
+## Actions Taken
+
+1. **Created targeted indexes** (`sql scripts_optimized/9_create_indexes_performance.sql`):
+   ```sql
+   CREATE INDEX idx_tm_measurement_site_id ON TrafficMeasurement(measurement_site_id);
+   CREATE INDEX idx_tm_timestamp          ON TrafficMeasurement(timestamp);
+   ```
+   These two lines (run once) already bring query time from minutes to seconds.
+
+2. **Rewrote the heavy views with SARGable predicates** (files stored in `appendix`):
+   - `v_traffic_yearly.sql`
+   - `v_traffic_city_yearly.sql`
+   - `v_kpi2_bottlenecks.sql`
+   - `v_kpi3_dominant_direction.sql`
+
+   Example (KPI 2 bottlenecks):
+   ```sql
+   WHERE tm.timestamp >= '2023-01-01'
+     AND tm.timestamp <  '2026-01-01'
+   ```
+   Replacing `YEAR(tm.timestamp)` with a date range lets MySQL use the timestamp index (lecture example of SARGable).
+
+3. **Explanation helper** – `sql scripts_optimized/run_explain_checks.sql` contains `EXPLAIN` statements for each KPI view. After running the indexes + views we expect `type = range` or `ref`, never `ALL`.
+
+## Result
+
+- Re-execution of script for views in database now refresh within a few seconds, because every KPI view hits indexed columns or pre-aggregated rows.
+- The optimization package is reproducible: run the index script, rerun the four optimized views, then sync Metabase.
+- All scripts are documented in git repository and appendix.
+
+```{r index_runtime_screenshot, echo=FALSE, out.width="100%", fig.cap="MySQL Workbench action log while creating the new indexes. Even on the full dataset the statements finish within seconds, which validates the low overhead of the optimization step."}
+knitr::include_graphics("materials_for_report_later/screenshots/time_runned_efficient_index_script.png")
+```
+
+## Materialized Aggregation Tables
+
+While targeted indexing and SARGable query rewrites significantly improved SQL execution times, this optimization alone proved insufficient for interactive BI usage in Metabase. Several KPI views still required minute-level execution times when used as the basis for charts, filters, and dashboard interactions, especially when Metabase repeatedly re-executed queries during visualization rendering.
+
+To address this limitation, we introduced materialized aggregation tables for the most performance-critical metrics. Instead of querying the full traffic table (~21 million rows) on each dashboard interaction, the core yearly and site-level aggregations are now precomputed and persisted in dedicated tables. Metabase queries therefore operate exclusively on these reduced, pre-aggregated datasets.
+
+An example of one of the materialized tables (see Appendix F for full scripts):
 
 ```sql
--- File: sql scripts_optimized/Traffic_sql/v_traffic_yearly.sql
-CREATE OR REPLACE VIEW v_traffic_yearly AS
+CREATE TABLE traffic_city_yearly_mat (
+    year INT NOT NULL,
+    avg_vehicle_count_city DECIMAL(12,2) NOT NULL,
+    PRIMARY KEY (year)
+);
+```
+
+```sql
+INSERT INTO traffic_city_yearly_mat
 SELECT
     YEAR(tm.timestamp) AS year,
-    cs.counting_site_id,
-    cs.counting_site_name,
-    ms.measurement_site_id,
-    ms.measurement_site_name,
-    ms.direction,
-    q.city_district,
-    q.statistical_quarter,
-    SUM(tm.vehicle_count) AS yearly_vehicle_count
+    CAST(AVG(tm.vehicle_count) AS DECIMAL(12,2)) AS avg_vehicle_count_city
 FROM trafficmeasurement tm
-JOIN measurementsite ms ON tm.measurement_site_id = ms.measurement_site_id
-JOIN countingsite cs    ON ms.counting_site_id    = cs.counting_site_id
-JOIN quarter q          ON cs.counting_site_name  = q.street_name
 WHERE tm.timestamp >= '2012-01-01'
   AND tm.timestamp <  '2026-01-01'
-GROUP BY
-    YEAR(tm.timestamp),
-    cs.counting_site_id,
-    cs.counting_site_name,
-    ms.measurement_site_id,
-    ms.measurement_site_name,
-    ms.direction,
-    q.city_district,
-    q.statistical_quarter;
+GROUP BY YEAR(tm.timestamp);
 ```
-
-```sql
--- File: sql scripts_optimized/Traffic_sql/v_traffic_city_yearly.sql
-CREATE OR REPLACE VIEW v_traffic_city_yearly AS
-SELECT
-    year,
-    AVG(site_avg) AS avg_vehicle_count_city
-FROM (
-    SELECT
-        cs.counting_site_id,
-        YEAR(tm.timestamp) AS year,
-        AVG(tm.vehicle_count) AS site_avg
-    FROM trafficmeasurement tm
-    JOIN measurementsite ms ON tm.measurement_site_id = ms.measurement_site_id
-    JOIN countingsite cs    ON ms.counting_site_id    = cs.counting_site_id
-    WHERE tm.timestamp >= '2012-01-01'
-      AND tm.timestamp <  '2026-01-01'
-    GROUP BY cs.counting_site_id, YEAR(tm.timestamp)
-) s
-GROUP BY year
-ORDER BY year;
-```
-
-```sql
--- File: sql scripts_optimized/Traffic_sql/v_kpi2_bottlenecks.sql
-CREATE OR REPLACE VIEW v_kpi2_bottlenecks AS
-SELECT
-    cs.counting_site_name,
-    CONCAT(LPAD(peak.hour, 2, '0'), ':00') AS peak_hour,
-    ROUND(peak.avg_volume, 0) AS avg_volume,
-    CASE
-        WHEN peak.avg_volume > 700 THEN 'Bottleneck'
-        ELSE 'Normal'
-    END AS status
-FROM (
-    SELECT
-        cs.counting_site_id,
-        HOUR(tm.timestamp) AS hour,
-        AVG(tm.vehicle_count) AS avg_volume,
-        ROW_NUMBER() OVER (
-            PARTITION BY cs.counting_site_id
-            ORDER BY AVG(tm.vehicle_count) DESC
-        ) AS rn
-    FROM trafficmeasurement tm
-    JOIN measurementsite ms ON tm.measurement_site_id = ms.measurement_site_id
-    JOIN countingsite cs    ON ms.counting_site_id    = cs.counting_site_id
-    WHERE tm.timestamp >= '2023-01-01'
-      AND tm.timestamp <  '2026-01-01'
-    GROUP BY cs.counting_site_id, HOUR(tm.timestamp)
-) peak
-JOIN countingsite cs ON peak.counting_site_id = cs.counting_site_id
-WHERE peak.rn = 1
-ORDER BY peak.avg_volume DESC;
-```
-
-```sql
--- File: sql scripts_optimized/Traffic_sql/v_kpi3_dominant_direction.sql
-CREATE OR REPLACE VIEW v_kpi3_dominant_direction AS
-WITH direction_totals AS (
-    SELECT
-        cs.counting_site_name,
-        ms.direction,
-        SUM(tm.vehicle_count) AS direction_volume
-    FROM trafficmeasurement tm
-    JOIN measurementsite ms ON tm.measurement_site_id = ms.measurement_site_id
-    JOIN countingsite cs    ON ms.counting_site_id    = cs.counting_site_id
-    WHERE tm.timestamp >= '2023-01-01'
-      AND tm.timestamp <  '2026-01-01'
-    GROUP BY cs.counting_site_name, ms.direction
-),
-site_totals AS (
-    SELECT counting_site_name, SUM(direction_volume) AS total_volume
-    FROM direction_totals
-    GROUP BY counting_site_name
-)
-SELECT
-    dt.counting_site_name,
-    dt.direction AS dominant_direction,
-    dt.direction_volume AS dominant_volume,
-    st.total_volume,
-    dt.direction_volume / st.total_volume AS dominance_share
-FROM direction_totals dt
-JOIN site_totals st ON dt.counting_site_name = st.counting_site_name
-WHERE dt.direction_volume = (
-    SELECT MAX(direction_volume)
-    FROM direction_totals
-    WHERE counting_site_name = dt.counting_site_name
-)
-ORDER BY dominance_share DESC;
-```
-
-*Optional:* `summary_traffic_hourly.sql` is also stored in the same folder in case the pre-aggregation path is needed for very slow hardware.
+The aggregated city-level traffic indicator is stored using a fixed-point `DECIMAL(12,2)` data type to avoid floating-point rounding artefacts and to ensure stable, reproducible values for Metabase visualisations. Date filters were rewritten using intervals (`>= start_date and < end_date`) instead of `BETWEEN` to avoid boundary ambiguities and to ensure index-friendly, SARGable predicates.
 
 # Visualization & Decision Support
 - **place holder**: 
@@ -1110,8 +1048,8 @@ IGNORE 1 LINES;
 
 ```sql
 CREATE TABLE TrafficSignal (
-    signal_id        INT PRIMARY KEY,
-    signal_name      VARCHAR(255)
+    signal_id   INT NOT NULL PRIMARY KEY,
+    signal_name VARCHAR(255) NOT NULL
 );
 ```
 
@@ -1119,13 +1057,14 @@ CREATE TABLE TrafficSignal (
 
 ```sql
 CREATE TABLE CountingSite (
-    counting_site_id      VARCHAR(50) PRIMARY KEY,
-    counting_site_name    VARCHAR(255),
-    axis                  VARCHAR(255),
-    east_coordinate       FLOAT,
-    north_coordinate      FLOAT,
-    signal_id             INT,
-    FOREIGN KEY (signal_id) REFERENCES TrafficSignal(signal_id)
+    counting_site_id   VARCHAR(50) NOT NULL PRIMARY KEY,
+    counting_site_name VARCHAR(255) NOT NULL,
+    axis               VARCHAR(255) NULL,
+    east_coordinate    FLOAT NULL,
+    north_coordinate   FLOAT NULL,
+    signal_id          INT NULL,
+    FOREIGN KEY (signal_id)
+        REFERENCES TrafficSignal(signal_id)
 );
 ```
 
@@ -1133,13 +1072,14 @@ CREATE TABLE CountingSite (
 
 ```sql
 CREATE TABLE MeasurementSite (
-    measurement_site_id     VARCHAR(50) PRIMARY KEY,
-    measurement_site_name   VARCHAR(255),
-    direction               VARCHAR(50),
-    position_description    VARCHAR(255),
-    num_detectors           INT,
-    counting_site_id        VARCHAR(50),
-    FOREIGN KEY (counting_site_id) REFERENCES CountingSite(counting_site_id)
+    measurement_site_id   VARCHAR(50) NOT NULL PRIMARY KEY,
+    measurement_site_name VARCHAR(255) NOT NULL,
+    direction             VARCHAR(50) NOT NULL,
+    position_description  VARCHAR(255) NULL,
+    num_detectors         INT NULL,
+    counting_site_id      VARCHAR(50) NOT NULL,
+    FOREIGN KEY (counting_site_id)
+        REFERENCES CountingSite(counting_site_id)
 );
 ```
 
@@ -1147,12 +1087,13 @@ CREATE TABLE MeasurementSite (
 
 ```sql
 CREATE TABLE TrafficMeasurement (
-    traffic_measurement_id   INT AUTO_INCREMENT PRIMARY KEY,
-    measurement_site_id      VARCHAR(50),
-    timestamp                DATETIME,
-    vehicle_count            INT,
-    vehicle_count_status     VARCHAR(50),
-    FOREIGN KEY (measurement_site_id) REFERENCES MeasurementSite(measurement_site_id)
+    traffic_measurement_id INT AUTO_INCREMENT PRIMARY KEY,
+    measurement_site_id    VARCHAR(50) NOT NULL,
+    timestamp              DATETIME NOT NULL,
+    vehicle_count          INT NULL,
+    vehicle_count_status   VARCHAR(50) NOT NULL,
+    FOREIGN KEY (measurement_site_id)
+        REFERENCES MeasurementSite(measurement_site_id)
 );
 ```
 
@@ -1261,7 +1202,7 @@ FROM stg_traffic_data;
 
 ---
 
-## Final Cleanup
+## Cleanup Staging Table
 
 ```sql
 SET FOREIGN_KEY_CHECKS = 1;
@@ -1587,5 +1528,460 @@ ADD CONSTRAINT fk_population_origin
 DROP TABLE stg_population_lookup;
 ```
 
+# Appendix E: Full SQL Logic for Stress Index (KPI 1)
+
+```sql
+CREATE OR REPLACE VIEW v_kpi1_quarter_stress_index_new AS
+WITH pop AS (
+SELECT
+year,
+city_district,
+statistical_quarter,
+SUM(population_total) AS population_total
+FROM v_population_yearly
+GROUP BY year, city_district, statistical_quarter
+),
+traffic AS (
+SELECT
+year,
+city_district,
+statistical_quarter,
+SUM(yearly_vehicle_count) AS vehicle_total
+FROM v_traffic_yearly
+GROUP BY year, city_district, statistical_quarter
+),
+paired AS (
+SELECT
+p2012.city_district,
+p2012.statistical_quarter,
+p2012.population_total AS pop_total_2012,
+p2025.population_total AS pop_total_2025,
+t2012.vehicle_total   AS traffic_2012,
+t2025.vehicle_total   AS traffic_2025
+FROM pop p2012
+LEFT JOIN pop p2025
+ON p2025.city_district = p2012.city_district
+AND p2025.statistical_quarter = p2012.statistical_quarter
+AND p2025.year = 2025
+LEFT JOIN traffic t2012
+ON t2012.city_district = p2012.city_district
+AND t2012.statistical_quarter = p2012.statistical_quarter
+AND t2012.year = 2012
+LEFT JOIN traffic t2025
+ON t2025.city_district = p2012.city_district
+AND t2025.statistical_quarter = p2012.statistical_quarter
+AND t2025.year = 2025
+WHERE p2012.year = 2012
+),
+stress AS (
+SELECT
+city_district,
+statistical_quarter,
+pop_total_2012,
+pop_total_2025,
+
+    -- Manual imputation for missing traffic values (2012)
+    CASE
+    WHEN statistical_quarter = 'Langstrasse'
+         AND traffic_2012 IS NULL
+    THEN 12019095
+
+    WHEN statistical_quarter = 'Oberstrass'
+         AND traffic_2012 IS NULL
+    THEN 8143882
+
+    WHEN statistical_quarter = 'Witikon'
+         AND traffic_2012 IS NULL
+    THEN 912447
+
+    WHEN statistical_quarter = 'Weinegg'
+         AND traffic_2012 IS NULL
+    THEN 887316
+
+    WHEN statistical_quarter = 'Albisrieden'
+         AND traffic_2012 IS NULL
+    THEN 10381552
+
+    WHEN statistical_quarter = 'Saatlen'
+         AND traffic_2012 IS NULL
+    THEN 648512
+
+    WHEN statistical_quarter = 'Schwamendingen-Mitte'
+         AND traffic_2012 IS NULL
+    THEN 534118
+
+    ELSE traffic_2012
+END AS traffic_2012_fixed,
+
+    -- Manual imputation for missing traffic values (2025)
+    CASE
+    WHEN statistical_quarter = 'Langstrasse'
+         AND traffic_2025 IS NULL
+    THEN 9874663
+
+    WHEN statistical_quarter = 'Oberstrass'
+         AND traffic_2025 IS NULL
+    THEN 9112940
+
+    WHEN statistical_quarter = 'Albisrieden'
+         AND traffic_2025 IS NULL
+    THEN 5982344
+
+    WHEN statistical_quarter = 'Schwamendingen-Mitte'
+         AND traffic_2025 IS NULL
+    THEN 608327
+
+    ELSE traffic_2025
+END AS traffic_2025_fixed
+
+FROM paired
+
+),
+ranked AS (
+SELECT
+city_district,
+statistical_quarter,
+pop_total_2012,
+pop_total_2025,
+traffic_2012_fixed,
+traffic_2025_fixed,
+
+    CASE 
+        WHEN pop_total_2012 IS NULL OR pop_total_2012 = 0
+            THEN NULL
+        ELSE ROUND((pop_total_2025 - pop_total_2012) / pop_total_2012 * 100, 1)
+    END AS population_growth_pct,
+
+    CASE 
+        WHEN traffic_2012_fixed IS NULL OR traffic_2012_fixed = 0
+            THEN NULL
+        ELSE ROUND((traffic_2025_fixed - traffic_2012_fixed) / traffic_2012_fixed * 100, 1)
+    END AS traffic_growth_pct,
+
+    CASE 
+        WHEN pop_total_2012 IS NULL OR pop_total_2012 = 0
+          OR traffic_2012_fixed IS NULL OR traffic_2012_fixed = 0
+            THEN NULL
+        ELSE ROUND(
+            ((traffic_2025_fixed - traffic_2012_fixed) / traffic_2012_fixed * 100) -
+            ((pop_total_2025 - pop_total_2012) / pop_total_2012 * 100),
+            1
+        )
+    END AS stress_index_pct,
+
+    NTILE(4) OVER (
+    ORDER BY
+        CASE
+            WHEN pop_total_2012 IS NULL
+                 OR pop_total_2012 = 0
+                 OR traffic_2012_fixed IS NULL
+                 OR traffic_2012_fixed = 0
+            THEN NULL
+
+            ELSE ROUND(
+                (
+                    (traffic_2025_fixed - traffic_2012_fixed)
+                    / traffic_2012_fixed
+                    * 100
+                )
+                -
+                (
+                    (pop_total_2025 - pop_total_2012)
+                    / pop_total_2012
+                    * 100
+                ),
+                1
+            )
+        END
+  ) AS stress_quartile
+FROM stress
+
+)
+SELECT
+city_district AS district_id,
+statistical_quarter AS quarter_name,
+pop_total_2012 AS population_2012,
+pop_total_2025 AS population_2025,
+traffic_2012_fixed AS traffic_2012,
+traffic_2025_fixed AS traffic_2025,
+population_growth_pct,
+traffic_growth_pct,
+stress_index_pct,
+CASE
+WHEN stress_index_pct IS NULL THEN 'Insufficient data'
+WHEN stress_quartile = 4 THEN 'Commuter pressure'
+WHEN stress_quartile = 1 THEN 'Residential pressure'
+ELSE 'Balanced'
+END AS stress_classification
+FROM ranked
+ORDER BY district_id, quarter_name;
+```
+
+# Appendix F: Efficiency & Query Performance Scripts
+
+This appendix collects the SQL snippets used to speed up Metabase dashboards.  
+Each script lives in `sql scripts_optimized/` inside the repository so that future team members can rerun them before refreshing the dashboards.
+
+## Index Creation (Run once)
+
+```sql
+-- File: sql scripts_optimized/9_create_indexes_performance.sql
+USE traffic_population_zh;
+
+-- TrafficMeasurement indexes
+CREATE INDEX idx_tm_timestamp          ON TrafficMeasurement(timestamp);
+CREATE INDEX idx_tm_measurement_site_id ON TrafficMeasurement(measurement_site_id);
+CREATE INDEX idx_tm_composite           ON TrafficMeasurement(measurement_site_id, timestamp);
+
+-- MeasurementSite index
+CREATE INDEX idx_ms_counting_site_id ON MeasurementSite(counting_site_id);
+
+-- Population indexes
+CREATE INDEX idx_pop_reference_date     ON Population(reference_date_year);
+CREATE INDEX idx_pop_district_quarter   ON Population(city_district, statistical_quarter);
+CREATE INDEX idx_pop_composite          ON Population(city_district, statistical_quarter, reference_date_year);
+
+-- Quarter indexes
+CREATE INDEX idx_quarter_street   ON Quarter(street_name);
+CREATE INDEX idx_quarter_district ON Quarter(city_district);
+```
+
+## Optimized Views (Run after the index script)
+
+```sql
+-- File: sql scripts_optimized/Traffic_sql/v_traffic_yearly.sql
+CREATE OR REPLACE VIEW v_traffic_yearly AS
+SELECT
+    YEAR(tm.timestamp) AS year,
+    cs.counting_site_id,
+    cs.counting_site_name,
+    ms.measurement_site_id,
+    ms.measurement_site_name,
+    ms.direction,
+    q.city_district,
+    q.statistical_quarter,
+    SUM(tm.vehicle_count) AS yearly_vehicle_count
+FROM trafficmeasurement tm
+JOIN measurementsite ms ON tm.measurement_site_id = ms.measurement_site_id
+JOIN countingsite cs    ON ms.counting_site_id    = cs.counting_site_id
+JOIN quarter q          ON cs.counting_site_name  = q.street_name
+WHERE tm.timestamp >= '2012-01-01'
+  AND tm.timestamp <  '2026-01-01'
+GROUP BY
+    YEAR(tm.timestamp),
+    cs.counting_site_id,
+    cs.counting_site_name,
+    ms.measurement_site_id,
+    ms.measurement_site_name,
+    ms.direction,
+    q.city_district,
+    q.statistical_quarter;
+```
+
+```sql
+-- File: sql scripts_optimized/Traffic_sql/v_traffic_city_yearly.sql
+CREATE OR REPLACE VIEW v_traffic_city_yearly AS
+SELECT
+    year,
+    AVG(site_avg) AS avg_vehicle_count_city
+FROM (
+    SELECT
+        cs.counting_site_id,
+        YEAR(tm.timestamp) AS year,
+        AVG(tm.vehicle_count) AS site_avg
+    FROM trafficmeasurement tm
+    JOIN measurementsite ms ON tm.measurement_site_id = ms.measurement_site_id
+    JOIN countingsite cs    ON ms.counting_site_id    = cs.counting_site_id
+    WHERE tm.timestamp >= '2012-01-01'
+      AND tm.timestamp <  '2026-01-01'
+    GROUP BY cs.counting_site_id, YEAR(tm.timestamp)
+) s
+GROUP BY year
+ORDER BY year;
+```
+
+```sql
+-- File: sql scripts_optimized/Traffic_sql/v_kpi2_bottlenecks.sql
+CREATE OR REPLACE VIEW v_kpi2_bottlenecks AS
+SELECT
+    cs.counting_site_name,
+    CONCAT(LPAD(peak.hour, 2, '0'), ':00') AS peak_hour,
+    ROUND(peak.avg_volume, 0) AS avg_volume,
+    CASE
+        WHEN peak.avg_volume > 700 THEN 'Bottleneck'
+        ELSE 'Normal'
+    END AS status
+FROM (
+    SELECT
+        cs.counting_site_id,
+        HOUR(tm.timestamp) AS hour,
+        AVG(tm.vehicle_count) AS avg_volume,
+        ROW_NUMBER() OVER (
+            PARTITION BY cs.counting_site_id
+            ORDER BY AVG(tm.vehicle_count) DESC
+        ) AS rn
+    FROM trafficmeasurement tm
+    JOIN measurementsite ms ON tm.measurement_site_id = ms.measurement_site_id
+    JOIN countingsite cs    ON ms.counting_site_id    = cs.counting_site_id
+    WHERE tm.timestamp >= '2023-01-01'
+      AND tm.timestamp <  '2026-01-01'
+    GROUP BY cs.counting_site_id, HOUR(tm.timestamp)
+) peak
+JOIN countingsite cs ON peak.counting_site_id = cs.counting_site_id
+WHERE peak.rn = 1
+ORDER BY peak.avg_volume DESC;
+```
+
+```sql
+-- File: sql scripts_optimized/Traffic_sql/v_kpi3_dominant_direction.sql
+CREATE OR REPLACE VIEW v_kpi3_dominant_direction AS
+WITH direction_totals AS (
+    SELECT
+        cs.counting_site_name,
+        ms.direction,
+        SUM(tm.vehicle_count) AS direction_volume
+    FROM trafficmeasurement tm
+    JOIN measurementsite ms ON tm.measurement_site_id = ms.measurement_site_id
+    JOIN countingsite cs    ON ms.counting_site_id    = cs.counting_site_id
+    WHERE tm.timestamp >= '2023-01-01'
+      AND tm.timestamp <  '2026-01-01'
+    GROUP BY cs.counting_site_name, ms.direction
+),
+site_totals AS (
+    SELECT counting_site_name, SUM(direction_volume) AS total_volume
+    FROM direction_totals
+    GROUP BY counting_site_name
+)
+SELECT
+    dt.counting_site_name,
+    dt.direction AS dominant_direction,
+    dt.direction_volume AS dominant_volume,
+    st.total_volume,
+    dt.direction_volume / st.total_volume AS dominance_share
+FROM direction_totals dt
+JOIN site_totals st ON dt.counting_site_name = st.counting_site_name
+WHERE dt.direction_volume = (
+    SELECT MAX(direction_volume)
+    FROM direction_totals
+    WHERE counting_site_name = dt.counting_site_name
+)
+ORDER BY dominance_share DESC;
+```
+
+## Materialized Tables
+
+### KPI0
+
+```sql
+CREATE TABLE traffic_city_yearly_mat (
+    year INT NOT NULL,
+    avg_vehicle_count_city DECIMAL(12,2) NOT NULL,
+    PRIMARY KEY (year)
+);
+```
+
+```sql
+INSERT INTO traffic_city_yearly_mat
+SELECT
+    YEAR(tm.timestamp) AS year,
+    CAST(AVG(tm.vehicle_count) AS DECIMAL(12,2)) AS avg_vehicle_count_city
+FROM trafficmeasurement tm
+WHERE tm.timestamp >= '2012-01-01'
+  AND tm.timestamp <  '2026-01-01'
+GROUP BY YEAR(tm.timestamp);
+```
+### KPI1
+
+```sql
+INSERT INTO population_yearly_quarter_mat
+SELECT
+    year,
+    city_district,
+    statistical_quarter,
+    SUM(population_total) AS population_total
+FROM v_population_yearly
+GROUP BY year, city_district, statistical_quarter;
+```
+
+```sql
+INSERT INTO traffic_yearly_quarter_mat
+SELECT
+    year,
+    city_district,
+    statistical_quarter,
+    COALESCE(SUM(yearly_vehicle_count), 0) AS vehicle_total
+FROM v_traffic_yearly
+WHERE year = 2012
+GROUP BY year, city_district, statistical_quarter;
+```
+
+(Equivalent INSERT statements were executed for the comparison year 2025.)
+
+### KPI2
+
+```sql
+CREATE TABLE traffic_hourly_site_mat (
+    counting_site_id VARCHAR(10) NOT NULL,
+    hour INT NOT NULL,
+    avg_volume DECIMAL(12,2) NOT NULL,
+    PRIMARY KEY (counting_site_id, hour)
+);
+```
+
+```sql
+INSERT INTO traffic_hourly_site_mat
+SELECT
+    cs.counting_site_id,
+    HOUR(tm.timestamp) AS hour,
+    CAST(COALESCE(AVG(tm.vehicle_count), 0) AS DECIMAL(12,2)) AS avg_volume
+FROM trafficmeasurement tm
+JOIN measurementsite ms
+    ON tm.measurement_site_id = ms.measurement_site_id
+JOIN countingsite cs
+    ON ms.counting_site_id = cs.counting_site_id
+WHERE tm.timestamp >= '2023-01-01'
+  AND tm.timestamp <  '2026-01-01'
+GROUP BY cs.counting_site_id, HOUR(tm.timestamp);
+```
+**Supporting aggregation (quarter-level traffic, comparison year)**
+
+```sql
+INSERT INTO traffic_yearly_quarter_mat
+SELECT
+    year,
+    city_district,
+    statistical_quarter,
+    COALESCE(SUM(yearly_vehicle_count), 0) AS vehicle_total
+FROM v_traffic_yearly
+WHERE year = 2025
+GROUP BY year, city_district, statistical_quarter;
+```
+
+### KPI3
+
+```sql
+CREATE TABLE traffic_direction_site_mat (
+    counting_site_name VARCHAR(150) NOT NULL,
+    direction VARCHAR(50) NOT NULL,
+    direction_volume BIGINT NOT NULL,
+    PRIMARY KEY (counting_site_name, direction)
+);
+```
+
+```sql
+INSERT INTO traffic_direction_site_mat
+SELECT
+    cs.counting_site_name,
+    ms.direction,
+    COALESCE(SUM(tm.vehicle_count), 0) AS direction_volume
+FROM trafficmeasurement tm
+JOIN measurementsite ms
+    ON tm.measurement_site_id = ms.measurement_site_id
+JOIN countingsite cs
+    ON ms.counting_site_id = cs.counting_site_id
+WHERE tm.timestamp >= '2023-01-01'
+  AND tm.timestamp <  '2026-01-01'
+GROUP BY cs.counting_site_name, ms.direction;
+```
 
 
