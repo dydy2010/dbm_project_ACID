@@ -1,7 +1,7 @@
 ---
 title: "Database Project Report"
 subtitle: "Traffic Flow Analysis for Urban Planning in Zurich | Team ACID"
-author: "Ramiro Díez-Liébana, Valeska Blank, Dongyuan Gao, Cyriel Van Helleputte"
+author: "Ramiro Díez-Liébana, Valeska Blank, Dongyuan Gao, Cyriel Van Helleputte \\newline GitHub Repository: https://github.com/username/repo-name"
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
   pdf_document:
@@ -21,18 +21,19 @@ knitr::opts_chunk$set(echo = FALSE)
 
 The City of Zurich faces growing challenges related to traffic congestion, mobility planning, and urban development. As the population increases and commuting patterns evolve, many intersections and arterial roads experience significant pressure, particularly during peak hours. Congestion affects not only travel times but also road safety, air quality, and the overall effectiveness of the city’s transport network.
 
-Urban planning authorities must therefore make complex decisions about where to prioritize infrastructure investments, how to optimize traffic signals, and which areas require redesign or alternative mobility solutions. These decisions rely heavily on an accurate understanding of traffic flows, temporal patterns, directional imbalances, and long-term trends. High-quality traffic data and transparent analytical methods are essential to support evidence-based planning, enable more targeted interventions, and ensure that resources are allocated efficiently.
+Urban planning authorities make complex decisions about where to prioritize infrastructure investments, how to optimize traffic signals, and which areas require redesign or alternative mobility solutions. These decisions rely heavily on an accurate understanding of traffic flows, patterns, directional imbalances, and long-term trends.
 
-To contribute to this goal, this project focuses on deriving meaningful insights and key performance indicators (KPIs) that can inform data-driven urban planning decisions in line with the OECD Data Value Cycle, which emphasizes the transformation of raw data into actionable value for public administration.
+To contribute to this goal, this project focuses on producing meaningful insights and key performance indicators (KPIs) that can inform data-driven urban planning decisions. We emphasize the transformation of raw data into actionable value for public administration. And of course, it serves also as a database management learning experience for our team.
 
 # Project Idea & Use Case
+We found our data on opendata.ch and our main idea is to derive insights for our hypothetical client- the Urban Planning Department of the City of Zurich. 
+We intend to analze the population & traffic data over the years of Zurich, and try to find where the urban planning could be improved, including traffic usecases and urban living usecases.
 
-To support Zurich’s urban planners in addressing congestion and mobility challenges, this project aims to transform traffic count data into meaningful indicators that can guide evidence-based decision-making. The central use case focuses on identifying traffic pressure points at intersections and understanding how traffic patterns vary by time, location, and direction.
+# The Datasets
+[to be added]
 
-# Data Model & Database Schema
-
-## Data Preprocessing & Preparation
-
+# Dataset & Preprocessing
+## Data Overview
 - Hourly **traffic count** data, **address** data (including city district and quarter) and **population** data from the City of Zurich’s open data portal was collected.
 - The raw datasets consisted of multiple CSV files (2012–2025).
 
@@ -44,8 +45,7 @@ To support Zurich’s urban planners in addressing congestion and mobility chall
 | Site metadata | Knummer, Kname, AnzDetektoren, D1ID–D4ID |
 | Measurement facts | MessungDatZeit, LieferDat, AnzFahrzeuge, AnzFahrzeugeStatus |
 
-Because the raw dataset included a mixture of analytical attributes and highly technical metadata, each field was examined to determine its relevance for traffic-flow analysis. The review was guided by the perspective of the City of Zurich’s urban planning department, which is primarily interested in temporal and spatial traffic patterns at specific locations and intersections.
-
+Because the raw dataset included a mixture of analytical attributes and highly technical metadata, each field was examined to determine its relevance for traffic-flow analysis. The review was guided by the perspective of the City of Zurich’s urban planning department
 ### Removed Fields
 
 - **HNr**, due to inconsistent content.
@@ -150,6 +150,8 @@ To prepare the dataset for integration and analysis, several cleaning and normal
 - **statistical_quarter**: Statistical quarter (“Statistisches Quartier”), harmonised to match the Quarter dataset.
 - **population_count**: Number of residents in the demographic segment.
 
+
+# Data Model & Database Schema
 ## Entity–Relationship Model
 
 The cleaned and harmonised datasets were integrated into a relational data model that adheres to the principles of third normal form (3NF) by separating measurement facts from descriptive and geographic attributes. The model reflects the structure of Zurich’s traffic measurement infrastructure, its geographic units, and the associated demographic information. The final schema was created in dbdiagram.io and is shown in the figure below.
@@ -157,9 +159,6 @@ The cleaned and harmonised datasets were integrated into a relational data model
 ```{r erd, echo=FALSE, out.width="100%", fig.cap="Entity–Relationship Diagram of the integrated Traffic–Quarter–Population model."}
 knitr::include_graphics("materials_for_report_later/screenshots/erd_traffic.png")
 ```
-
-### Overview
-
 The model is centred around the **traffic measurement process**, which is represented by three core entities:
 
 - **CountingSite**  
@@ -974,7 +973,7 @@ This project successfully transformed raw, converted open data into a robust ana
 3.  **Performance Optimization:** We learned that "Big Data" in a relational database requires careful designing. By implementing indexing and SARGable queries that we learned in course, we reduced query times from minutes to seconds. This enabled us to build a dashboard that provides real-time reporting.
 
 ## Conclusion for our Client
-
+[to be added]
 
 ## Lessons Learned
 - **Data Structure Design is Important:** A significant portion of time was spent handling the design of the database structure. Another data scientist usual topic is also the time consuming task of data quality & data cleaning
@@ -983,8 +982,6 @@ This project successfully transformed raw, converted open data into a robust ana
 
 
 # Individual Team Member Reflections
-
-## Individual Member Contributions & Learnings
 
 ### Ramiro Díez-Liébana
 - [to be added]
