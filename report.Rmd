@@ -8,6 +8,7 @@ output:
     toc: true
     toc_depth: 2
     number_sections: true
+    extra_dependencies: ["float"]
 fontsize: 11pt
 geometry: margin=1in
 knit: rmarkdown::render
@@ -30,7 +31,11 @@ We found our data on opendata.ch and our main idea is to derive insights for our
 We intend to analze the population & traffic data over the years of Zurich, and try to find where the urban planning could be improved, including traffic usecases and urban living usecases.
 
 # The Datasets
-[to be added]
+Please allow us using our presentation slide to better introduce our datasets.
+
+```{r data_landscape, echo=FALSE, out.width="90%", fig.cap="Data Landscape Overview", fig.pos="H", fig.align="center"}
+knitr::include_graphics("materials_for_report_later/data_landscape_insert_report.png")
+```
 
 # Dataset & Preprocessing
 ## Data Overview
@@ -947,10 +952,10 @@ The final layer of the project is the delivery of actionable insights through an
 The dashboard is designed to visualise the core questions & insights defined in our KPI framework. It is divided into three visual topics:
 
 ### 1. Citywide Overview (KPI 0)
-- **Visual:** A exploratory preview of our dataset. Here we have a dual-axis line chart, displaying the 12-year trend (2012–2025) of total population vs. traffic.
-- **Insight:** This visual showcases traffic growth and relationship to population growth.
-- **Decision Support:** It gives the reader a quick overview of the data and allows them to spot trends and patterns.
-[please insert the screenshot of the dashboard here, and adjust the description ]
+This dual-axis chart compares the total population growth with the average traffic intensity across Zurich from 2012 to 2025.
+
+
+**Key Insight:** While the population has grown steadily by over 14%, traffic intensity dropped significantly in 2020 and has remained below pre-pandemic levels, suggesting a shift in mobility behavior.
 ### 2. District Pressure Map (KPI 1)
 - **Visual:** A table grouping districts by their "Stress Index" classification (Commuter Pressure vs. Residential Pressure vs Insufficient data).
 - **Insight:** Identifies specific districts that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infraestructure measures.
@@ -979,7 +984,8 @@ This project successfully transformed raw, converted open data into a robust ana
 - **Data Structure Design is Important:** A significant portion of time was spent handling the design of the database structure. Another data scientist usual topic is also the time consuming task of data quality & data cleaning
 - **Optimization should be done Upfront:** Initial attempts to run aggregations on the full 20-million-row dataset were frustratingly slow. Data query efficiency, is better implemented upfront.
 - **Value of Staging:** using a two-stage ETL process (Staging -> Production) saved us from multiple "start over" moments.
-
+- **Teamwork:** We used github to store scripts and miro to share ideas and progress. We would be still happy to hear other inspiration of teamwork with database management. We think that the current setup for teamwork though necessary, but could be improved.
+- **Gen-AI for Database:** Since mysql and metabase are not integrated with AI, we relied on web-based AI tools, we find that, it is helpful but not optimal due to context limitation. We intend to find better AI usage for better context engineering while working with databases.
 
 # Individual Team Member Reflections
 
