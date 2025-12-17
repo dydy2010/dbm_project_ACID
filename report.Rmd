@@ -1014,22 +1014,6 @@ AI-based assistants were applied in the following specific cases:
 1. **Benefits:** Faster debugging (e.g., resolving R Markdown knitting errors or MySQL query issues), on-demand tutoring for advanced questions, and more time spent on analytical reasoning instead of routine fixes.
 2. **Challenges:** The ease of getting answers can create a temptation to trust outputs blindly. The "human-in-the-loop" guideline ensured the team retained ownership, validating every AI-assisted contribution.
 
-# How to render this report
-
-A single R command will render the file. In an R console run:
-`rmarkdown::render("report.Rmd")`
-Make sure your R working directory is the report folder (or use the full path). For PDF output you need a LaTeX engine (e.g. TinyTeX).
-
-```{r render_examples, eval=FALSE}
-# In R (interactive)
-rmarkdown::render("report.Rmd", output_format = "pdf_document")
-
-# From a shell/CI
-# Rscript -e 'rmarkdown::render("report.Rmd")'
-
-# If you need LaTeX for PDF and don't have it installed:
-# install.packages("tinytex"); tinytex::install_tinytex()
-```
 
 \newpage
 
