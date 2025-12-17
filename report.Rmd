@@ -955,33 +955,33 @@ The dashboard is designed to visualise the core questions & insights defined in 
 This dual-axis chart compares the total population growth with the average traffic intensity across Zurich from 2012 to 2025.
 
 
-**Key Insight:** While the population has grown steadily by over 14%, traffic intensity dropped significantly in 2020 and has remained below pre-pandemic levels, suggesting a shift in mobility behavior.
-### 2. District Pressure Map (KPI 1)
-- **Visual:** A table grouping districts by their "Stress Index" classification (Commuter Pressure vs. Residential Pressure vs Insufficient data).
-- **Insight:** Identifies specific districts that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infraestructure measures.
-- **Decision Recommendation for Client:** Targeted infrastructure investment improving roads in "Commuter" zones. Focus on living comfort design in "Residential" growth zones.
+**Key Insight:** While the population has grown steadily by over 14%, traffic intensity dropped significantly in 2020 and has remained below pre-pandemic levels, suggesting a shift in mobility behavior.<br>
+### 2. District Pressure Map (KPI 1)<br>
+- **Visual:** A table grouping districts by their "Stress Index" classification (Commuter Pressure vs. Residential Pressure vs Insufficient data).<br>
+- **Insight:** Identifies specific districts that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infraestructure measures.<br>
+- **Decision Recommendation for Client:** Targeted infrastructure investment improving roads in "Commuter" zones. Focus on living comfort design in "Residential" growth zones.<br>
 [please insert the screenshot of the dashboard here, and adjust the description]
 
-### 3. Operational Bottlenecks (KPI 2 & 3)
-- **Visual:** A list of "Red Flag" intersections where the peak-hour volume consistently exceeds 700 vehicles/hour.
-- **Visual:** A breakdown of directional imbalance for major intersections.
-- **Decision Support:** The bottlenecks are the critical areas that the client should focus as painpoints for priority. And a directional imbalance is somewhere, the client could implement hourly traffic control measures(change lane numbers on one direction depending on time of the day).
+### 3. Operational Bottlenecks (KPI 2 & 3)<br>
+- **Visual:** A list of "Red Flag" intersections where the peak-hour volume consistently exceeds 700 vehicles/hour.<br>
+- **Visual:** A breakdown of directional imbalance for major intersections.<br>
+- **Decision Support:** The bottlenecks are the critical areas that the client should focus as painpoints for priority. And a directional imbalance is somewhere, the client could implement hourly traffic control measures(change lane numbers on one direction depending on time of the day).<br>
 [please insert the screenshot of the dashboard here, and adjust descriptions]
 
 
 # Conclusions & Lessons Learned
 
 ## Project Achievements
-This project successfully transformed raw, converted open data into a robust analytical insights for the City of Zurich.
-1.  **Data Design & Integration:** We consolidated over 21 million traffic records with demographic and spatial data into a clean 3NF schema.
-2.  **Analysis Concept Design:** The "Stress Index" provides a practical, comparable metric for urban analysis and provides practical insights for stakeholders.
+This project successfully transformed raw, converted open data into a robust analytical insights for the City of Zurich.<br>
+1.  **Data Design & Integration:** We consolidated over 21 million traffic records with demographic and spatial data into a clean 3NF schema.<br>
+2.  **Analysis Concept Design:** The "Stress Index" provides a practical, comparable metric for urban analysis and provides practical insights for stakeholders.<br>
 3.  **Performance Optimization:** We learned that "Big Data" in a relational database requires careful designing. By implementing indexing and SARGable queries that we learned in course, we reduced query times from minutes to seconds. This enabled us to build a dashboard that provides real-time reporting.
 
 ## Conclusion for our Client
 Based on our data analysis, we can offer the Urban Planning Department three main strategic takeaways.
 
 **1. The Success (KPI 0):**  
-First, the trend analysis brings good news: Zurich is growing (population +14%) without a proportional explosion in car traffic. The post-2020 divergence where population climbs while traffic stabilizes suggests that the public transport focused Zurich is real. The city is not drowning in cars despite its growth, which validates current public transport focused policies.
+First, the trend analysis brings good news: **Zurich is growing** (population +14%) **without** a proportional **explosion** in car traffic. The **post-2020** divergence where population climbs while **traffic stabilizes** suggests that the public transport focused Zurich is real. The city is not drowning in cars despite its growth, which validates current public transport focused policies.
 
 **2. Uneven Stress Distribution (KPI 1):**  
 However, this success is not geographically uniform. Our **Stress Index** highlights a divide:
@@ -1002,9 +1002,9 @@ For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrass
 # Individual Team Member Reflections
 
 ### Ramiro Díez-Liébana
-- [to be added]
+- [to be added]<br>
 ### Valeska Blank**Key Learning:** 
-[to be added]
+[to be added]<br>
 ### Dongyuan Gao
 - This project is my first database project and experience. I learned through hands on experience how a data structure is designed and how a database setup with mysql(via vm) works, and how we can connect it to a frontend tool(metabase).
 - A very important lesson i learned is we should always consider the efficiency in mind, while writing SQL queries, and designing the database. Otherwise, it wouldnt be possibole to have meaningful usecase, especially for the frontend visualisations.
@@ -1023,9 +1023,9 @@ Generative AI was used as a supplementary tool on top of the assisting material 
 
 ### Use Cases of AI Tools in the DBM Course Context
 AI-based assistants were applied in the following specific cases:
-1. **Brainstorming:** Elaborating initial ideas, structuring thoughts, and outlining coding approaches.
-2. **Debugging & optimization:** Explaining error messages and helping improve self-developed scripts to raise efficiency.
-3. **Proofreading:** Accelerating grammar and typo checks during documentation.
+1. **Brainstorming:** Elaborating initial ideas, structuring thoughts, and outlining coding approaches.<br>
+2. **Debugging & optimization:** Explaining error messages and helping improve self-developed scripts to raise efficiency.<br>
+3. **Proofreading:** Accelerating grammar and typo checks during documentation.<br>
 4. **Information acquisition:** Searching for methodological references or code documentation for SQL, R Markdown, or data-modeling concepts (always followed by human verification of credibility).
 
 ### Benefits and Challenges in Using Generative AI Tools
