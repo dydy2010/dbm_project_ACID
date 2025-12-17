@@ -940,19 +940,63 @@ GROUP BY YEAR(tm.timestamp);
 The aggregated city-level traffic indicator is stored using a fixed-point `DECIMAL(12,2)` data type to avoid floating-point rounding artefacts and to ensure stable, reproducible values for Metabase visualisations. Date filters were rewritten using intervals (`>= start_date and < end_date`) instead of `BETWEEN` to avoid boundary ambiguities and to ensure index-friendly, SARGable predicates.
 
 # Visualization & Decision Support
-- **place holder**: 
+
+The final layer of the project is the delivery of actionable insights through an interactive Metabase dashboard. By connecting Metabase to the optimized MySQL views and materialized tables, we allow urban planners to explore the data dynamically without writing SQL code.
+
+## Metabase Dashboard Concept
+
+The dashboard is designed to visualise the core questions & insights defined in our KPI framework. It is divided into three visual topics:
+
+### 1. Citywide Overview (KPI 0)
+- **Visual:** A exploratory preview of our dataset. Here we have a dual-axis line chart, displaying the 12-year trend (2012–2025) of total population vs. traffic.
+- **Insight:** This visual showcases traffic growth and relationship to population growth.
+- **Decision Support:** It gives the reader a quick overview of the data and allows them to spot trends and patterns.
+[please insert the screenshot of the dashboard here, and adjust the description ]
+### 2. District Pressure Map (KPI 1)
+- **Visual:** A table grouping districts by their "Stress Index" classification (Commuter Pressure vs. Residential Pressure vs Insufficient data).
+- **Insight:** Identifies specific districts that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infraestructure measures.
+- **Decision Recommendation for Client:** Targeted infrastructure investment improving roads in "Commuter" zones. Focus on living comfort design in "Residential" growth zones.
+[please insert the screenshot of the dashboard here, and adjust the description]
+
+### 3. Operational Bottlenecks (KPI 2 & 3)
+- **Visual:** A list of "Red Flag" intersections where the peak-hour volume consistently exceeds 700 vehicles/hour.
+- **Visual:** A breakdown of directional imbalance for major intersections.
+- **Decision Support:** The bottlenecks are the critical areas that the client should focus as painpoints for priority. And a directional imbalance is somewhere, the client could implement hourly traffic control measures(change lane numbers on one direction depending on time of the day).
+[please insert the screenshot of the dashboard here, and adjust descriptions]
+
 
 # Conclusions & Lessons Learned
-- **place holder**: 
 
-# Individual Team Member Reflections (required)
+## Project Achievements
+This project successfully transformed raw, converted open data into a robust analytical insights for the City of Zurich.
+1.  **Data Design & Integration:** We consolidated over 21 million traffic records with demographic and spatial data into a clean 3NF schema.
+2.  **Analysis Concept Design:** The "Stress Index" provides a practical, comparable metric for urban analysis and provides practical insights for stakeholders.
+3.  **Performance Optimization:** We learned that "Big Data" in a relational database requires careful designing. By implementing indexing and SARGable queries that we learned in course, we reduced query times from minutes to seconds. This enabled us to build a dashboard that provides real-time reporting.
 
-## Individual Member Structure
-- **Member Overview:** 
-- **Technical Takeaways:** 
-- **Collaboration Insights:** 
-- **Next Steps:** 
+## Conclusion for our Client
 
+
+## Lessons Learned
+- **Data Structure Design is Important:** A significant portion of time was spent handling the design of the database structure. Another data scientist usual topic is also the time consuming task of data quality & data cleaning
+- **Optimization should be done Upfront:** Initial attempts to run aggregations on the full 20-million-row dataset were frustratingly slow. Data query efficiency, is better implemented upfront.
+- **Value of Staging:** using a two-stage ETL process (Staging -> Production) saved us from multiple "start over" moments.
+
+
+# Individual Team Member Reflections
+
+## Individual Member Contributions & Learnings
+
+### Ramiro Díez-Liébana
+- [to be added]
+### Valeska Blank**Key Learning:** 
+[to be added]
+### Dongyuan Gao
+- This project is my first database project and experience. I learned through hands on experience how a data structure is designed and how a database setup with mysql(via vm) works, and how we can connect it to a frontend tool(metabase).
+- A very important lesson i learned is we should always consider the efficiency in mind, while writing SQL queries, and designing the database. Otherwise, it wouldnt be possibole to have meaningful usecase, especially for the frontend visualisations.
+- One aspect that I would still need to discover in future project is, how to collab with team when we do a database project like this. Since queries and database desgins are not easy to communicate with team, we used git for collaboration, to keep the scripts and concepts in files there. It is still not easy to find bugs or improve it based on teammates work, comparing to code review in programing which I am used to.Therefore, I am still not sure how it is done in practice. Or are queries more for one time usage for teammembers? This is the question that I will keep in mind for future projects.
+- Another note about teamwork, in my experience, it would be better to already have a metabase or other data visual tool in place, while working on the project, instead of implementing it in the end. Then it will be easier to have the data results ready for inspect, during the work.
+### Cyriel Van Helleputte
+- [to be added]
 # Generative AI Declaration & Guidelines
 
 Generative AI was used as a supplementary tool on top of the assisting material provided in the DBM lecture.
