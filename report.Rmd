@@ -2,8 +2,12 @@
 title: "Database Project Report"
 subtitle: "Traffic Flow Analysis for Urban Planning in Zurich | Team ACID"
 author: |
-  Ramiro Díez-Liébana, Valeska Blank, Dongyuan Gao, Cyriel Van Helleputte  
-  GitHub Repository: https://github.com/dydy2010/dbm_project_ACID
+  Ramiro Díez-Liébana \textit{(ramiro.diezliebanaorejas@stud.hslu.ch)}  
+  Valeska Blank \textit{(valeska.blank@stud.hslu.ch)}  
+  Dongyuan Gao \textit{(gao.dongyuan2010@gmail.com)}  
+  Cyriel Van Helleputte \textit{(cyriel.vanhelleputte@stud.hslu.ch)}  
+  \vspace{0.3cm}  
+  \small GitHub: \url{https://github.com/dydy2010/dbm_project_ACID}
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
   pdf_document:
@@ -1003,17 +1007,22 @@ For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrass
 
 # Individual Team Member Reflections
 
-### Ramiro Díez-Liébana
+ **Ramiro Díez-Liébana**
 - [to be added]<br>
-### Valeska Blank**Key Learning:** 
+
+ **Valeska Blank**
+ Key Learning: 
 [to be added]<br>
-### Dongyuan Gao
+
+ **Dongyuan Gao**
 - This project is my first database project and experience. I learned through hands on experience how a data structure is designed and how a database setup with mysql(via vm) works, and how we can connect it to a frontend tool(metabase).
 - A very important lesson i learned is we should always consider the efficiency in mind, while writing SQL queries, and designing the database. Otherwise, it wouldnt be possibole to have meaningful usecase, especially for the frontend visualisations.
 - One aspect that I would still need to discover in future project is, how to collab with team when we do a database project like this. Since queries and database desgins are not easy to communicate with team, we used git for collaboration, to keep the scripts and concepts in files there. It is still not easy to find bugs or improve it based on teammates work, comparing to code review in programing which I am used to.Therefore, I am still not sure how it is done in practice. Or are queries more for one time usage for teammembers? This is the question that I will keep in mind for future projects.
 - Another note about teamwork, in my experience, it would be better to already have a metabase or other data visual tool in place, while working on the project, instead of implementing it in the end. Then it will be easier to have the data results ready for inspect, during the work.
-### Cyriel Van Helleputte
-- [to be added]
+
+** Cyriel Van Helleputte**
+ [to be added]
+
 # Generative AI Declaration & Guidelines
 
 Generative AI was used as a supplementary tool on top of the assisting material provided in the DBM lecture.
