@@ -1,7 +1,9 @@
 ---
 title: "Database Project Report"
 subtitle: "Traffic Flow Analysis for Urban Planning in Zurich | Team ACID"
-author: "Ramiro Díez-Liébana, Valeska Blank, Dongyuan Gao, Cyriel Van Helleputte \\newline GitHub Repository: https://github.com/username/repo-name"
+author: |
+  Ramiro Díez-Liébana, Valeska Blank, Dongyuan Gao, Cyriel Van Helleputte  
+  GitHub Repository: https://github.com/dydy2010/dbm_project_ACID
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
 output:
   pdf_document:
