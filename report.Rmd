@@ -33,17 +33,52 @@ Urban planning authorities make complex decisions about where to prioritize infr
 To contribute to this goal, this project focuses on producing meaningful insights and key performance indicators (KPIs) that can inform data-driven urban planning decisions. We emphasize the transformation of raw data into actionable value for public administration. And of course, it serves also as a database management learning experience for our team.
 
 # Project Idea & Use Case
+
 We found our data on opendata.ch and our main idea is to derive insights for our hypothetical client- the Urban Planning Department of the City of Zurich. 
 We intend to analze the population & traffic data over the years of Zurich, and try to find where the urban planning could be improved, including traffic usecases and urban living usecases.
 
-# The Datasets
-Please allow us using our presentation slide to better introduce our datasets.
+## The Datasets
+
+Our presentation slide helps to better introduce our datasets.
 
 ```{r data_landscape, echo=FALSE, out.width="90%", fig.cap="Data Landscape Overview", fig.pos="H", fig.align="center"}
 knitr::include_graphics("materials_for_report_later/data_landscape_insert_report.png")
 ```
 
+## System Architecture Overview
+
+The project follows a layered database architecture designed to support both analytical correctness and interactive business intelligence usage. Raw traffic and population data are ingested from CSV files into a staging schema, where data cleaning, type normalization, and deduplication are performed.
+
+The cleaned data are then loaded into a normalized production schema that serves as the foundation for analytical SQL views implementing the defined KPIs. To meet performance requirements for interactive dashboards, additional optimization layers are applied, including targeted indexing and materialized aggregation tables for computationally intensive metrics.
+
+Metabase connects directly to optimized analytical views and materialized tables, enabling fast query execution and interactive exploration. This separation of staging, analytical, and performance layers ensures reproducibility, maintainability, and scalability of the overall system.
+
+The following sections describe the individual layers of this architecture in detail.
+
+### System Access and Verification
+
+The database system was deployed on a university-hosted Windows virtual machine and is accessible via the internal university network.
+
+**Virtual Machine Access:**
+
+Host: win-hs-007.dbm.ls.eee.intern
+Username: labadmin  
+Password: provided by the instructors via ILIAS
+
+**Database (MySQL):**
+
+Database: traffic_population_zh  
+Access is configured using project-specific database users.
+
+**Metabase:**
+
+Metabase is installed and executed locally on the virtual machine. After logging into the VM, the application can be started and accessed via:
+URL: http://localhost:3000
+
+For security reasons, project-specific credentials for MySQL and Metabase are not included in this report. Evaluation credentials can be provided to the instructor upon request.
+
 # Dataset & Preprocessing
+
 ## Data Overview
 - Hourly **traffic count** data, **address** data (including city district and quarter) and **population** data from the City of Zurich’s open data portal was collected.
 - The raw datasets consisted of multiple CSV files (2012–2025).
@@ -56,7 +91,8 @@ knitr::include_graphics("materials_for_report_later/data_landscape_insert_report
 | Site metadata | Knummer, Kname, AnzDetektoren, D1ID–D4ID |
 | Measurement facts | MessungDatZeit, LieferDat, AnzFahrzeuge, AnzFahrzeugeStatus |
 
-Because the raw dataset included a mixture of analytical attributes and highly technical metadata, each field was examined to determine its relevance for traffic-flow analysis. The review was guided by the perspective of the City of Zurich’s urban planning department
+Because the raw dataset included a mixture of analytical attributes and highly technical metadata, each field was systematically examined and filtered using Python and the pandas library to assess its relevance for traffic-flow analysis.
+
 ### Removed Fields
 
 - **HNr**, due to inconsistent content.
@@ -165,7 +201,7 @@ To prepare the dataset for integration and analysis, several cleaning and normal
 # Data Model & Database Schema
 ## Entity–Relationship Model
 
-The cleaned and harmonised datasets were integrated into a relational data model that adheres to the principles of third normal form (3NF) by separating measurement facts from descriptive and geographic attributes. The model reflects the structure of Zurich’s traffic measurement infrastructure, its geographic units, and the associated demographic information. The final schema was created in dbdiagram.io and is shown in the figure below.
+The cleaned and harmonised datasets were integrated into a relational data model that adheres to the principles of third normal form (3NF) by separating measurement facts from descriptive and geographic attributes. The model reflects the structure of Zurich’s traffic measurement infrastructure, its geographic units, and the associated demographic information. The final schema was created in dbdiagram.io and is shown in figure 2 below.
 
 ```{r erd, echo=FALSE, out.width="100%", fig.cap="Entity–Relationship Diagram of the integrated Traffic–Quarter–Population model."}
 knitr::include_graphics("materials_for_report_later/screenshots/erd_traffic.png")
@@ -186,7 +222,7 @@ These three entities form a 1:n:n hierarchy:
 
 ### Traffic Signal Dimension
 
-Some counting sites are associated with a traffic signal or intersection controller. This metadata is normalised into the **TrafficSignal** table. Since not every counting site is linked to a signal, the relationship is **optional**.
+Some counting sites are associated with a traffic signal or intersection controller. This metadata is normalised into the **TrafficSignal** table. Since not every counting site is linked to a signal, the relationship is optional.
 
 ### Geographic Dimension: Quarter
 
@@ -273,7 +309,7 @@ Sample output:
 | 1        | 15.2%        | 8.3%             | -6.9%        | Balanced       |
 | 2        | 12.5%        | 22.1%            | +9.6%        | Commuter Hub   |
 
-```{r kpi1_result_screenshot, echo=FALSE, out.width="100%", fig.cap="MySQL Workbench result grid for the stress-index query (KPI 1). The classification column highlights commuter vs. residential pressure zones."}
+```{r kpi1_result_screenshot, echo=FALSE, fig.pos="H", out.width="100%", fig.cap="MySQL Workbench result grid for the stress-index query (KPI 1). The classification column highlights commuter vs. residential pressure zones."}
 knitr::include_graphics("materials_for_report_later/screenshots/pressure_index_query_result_screenshot_kpi1.png")
 ```
 
@@ -394,7 +430,7 @@ In the final implementation, sex_code and origin_code are still conceptually lin
 The TrafficMeasurement table contains more than 21 million hourly traffic observations. A surrogate primary key (`traffic_measurement_id`) was added for row identification:
 
 ```sql
-CCREATE TABLE TrafficMeasurement (
+CREATE TABLE TrafficMeasurement (
     traffic_measurement_id INT AUTO_INCREMENT PRIMARY KEY,
     measurement_site_id    VARCHAR(50) NOT NULL,
     timestamp              DATETIME NOT NULL,
@@ -444,30 +480,39 @@ After loading the staging tables, all transformations were executed in SQL. The 
 
 1. Deduplication Using GROUP BY
 
-Several entities—such as Quarter, CountingSite, and MeasurementSite—appeared multiple times due to repeated values in the raw datasets. Deduplication was achieved using GROUP BY combined with safe selection of consistent values:
+Several entities (such as Quarter, CountingSite, and MeasurementSite) appeared multiple times in the staging tables because the same locations were recorded repeatedly in the raw data.
+
+To clean this up, duplicate rows were combined so that each location appears only once. When multiple rows existed for the same location, one consistent value was kept. This was possible because the duplicated rows contained the same information, and any small differences were only due to how the data was stored or imported, not because the underlying information was actually different.
 
 ```sql
-SELECT street_name,
-       CAST(CAST(MIN(city_district) AS DECIMAL(10,2)) AS SIGNED),
-       MIN(statistical_quarter)
+SELECT
+    street_name,
+    MIN(city_district)        AS city_district,
+    MIN(statistical_quarter)  AS statistical_quarter
 FROM stg_quarter_data
 GROUP BY street_name;
 ```
 
 2. Type Conversion and Cleaning
 
-Many numeric fields in the raw CSV files appeared as strings ("1.0", "224.0") or contained empty values ("").
-To ensure safe conversion to integers, nested casting was used:
+Many numeric fields in the raw CSV files were stored as text values (e.g. "1.0", "224.0") or contained empty strings. Before loading the data into structured tables, these values were cleaned and converted step by step. Empty strings were first mapped to NULL, and text-based numeric values were then converted into numeric types using nested casting.
+
+This approach helped avoid conversion errors during import and ensured that numeric values were stored in a consistent format.
 
 ```sql
-CAST(CAST(NULLIF(TRIM(city_district), '') AS DECIMAL(10,2)) AS SIGNED)
+CAST(
+    CAST(NULLIF(TRIM(city_district), '') AS DECIMAL(10,2))
+    AS SIGNED
+)
 ```
 
-This approach ensures correct handling of decimals and empty strings.
+The intermediate conversion to `DECIMAL` was used because some values were stored with decimal notation, even though the target column represents an integer.
 
 3. Construction of Lookup Tables (Sex and Origin)
 
-A lightweight lookup staging table was reloaded to extract dimension values for Sex and Origin:
+To separate descriptive attributes from the main population data, lookup tables for Sex and Origin were created. These attributes appear repeatedly in the raw population files but only take a small number of distinct values.
+
+First, a lightweight staging table was loaded to collect all relevant values for sex and origin from the raw data:
 
 ```sql
 LOAD DATA LOCAL INFILE ...
@@ -475,17 +520,23 @@ INTO TABLE stg_population_lookup
 (@date, sex_code, sex, origin_code, origin, @d1, @d2, @d3);
 ```
 
-Deduplicated lookup tables were then created as follows:
+Based on this staging table, duplicate entries were removed and clean lookup tables were created using `SELECT DISTINCT`:
 
 ```sql
-INSERT INTO Sex    SELECT DISTINCT sex_code, sex       FROM stg_population_lookup;
-INSERT INTO Origin SELECT DISTINCT origin_code, origin FROM stg_population_lookup;
+INSERT INTO Sex
+SELECT DISTINCT sex_code, sex
+FROM stg_population_lookup;
+
+INSERT INTO Origin
+SELECT DISTINCT origin_code, origin
+FROM stg_population_lookup;
 ```
+
+This step ensures that sex and origin values are stored consistently and avoids repeated storage of the same descriptive information in the main population table.
 
 4. Normalization of the Population Table
 
-During the initial loading, descriptive columns such as sex and origin were included in the staging and production tables.
-After constructing the lookup tables, these redundant attributes were removed:
+During the initial loading, descriptive columns such as sex and origin were included in the staging and production tables. After constructing the lookup tables, these redundant attributes were removed:
 
 ```sql
 ALTER TABLE Population
@@ -493,13 +544,13 @@ DROP COLUMN sex,
 DROP COLUMN origin;
 ```
 
-Foreign keys were then added to ensure referential integrity.
+After creating all tables and defining the foreign key relationships, the resulting schema in MySQL Workbench is shown below:
 
-```{r table_screenshot, echo=FALSE, out.width="40%", fig.cap="Relational database schema of the original data model in MySQL Workbench, illustrating the core entities."}
+```{r table_screenshot, echo=FALSE, fig.pos="H", out.width="40%", fig.cap="Relational database schema of the original data model in MySQL Workbench, illustrating the core entities."}
 knitr::include_graphics("materials_for_report_later/screenshots/tables1.png")
 ```
 
-### Challenges and Solutions
+### Challenges and Solutions in the ETL Process
 
 **Challenge 1: Decimal-formatted numeric values**
 
@@ -520,17 +571,16 @@ NULLIF(TRIM(value), '')
 **Challenge 3: Large-scale inserts with foreign key dependencies**
 
 Issue: Bulk loading millions of records into a normalized schema requires temporary suspension of referential integrity checks to achieve acceptable performance.
-*Solution: Foreign key checks were intentionally disabled during insertion and reactivated after the operation, following standard best practices for ETL pipelines.*
+*Solution: Foreign key checks were intentionally disabled during insertion and reactivated after the operation, following common ETL best practices.*
 
 **Challenge 4: Reconstruction of lookup data**
 
 Issue: The original staging table containing lookup information for Sex and Origin had accidentally been deleted.
 *Solution: A minimal stg_population_lookup table was recreated and reloaded to regenerate the necessary dimension tables.*
 
-
 # Analyzing & Evaluating Data
 
-In a first step, comprehensive yearly views were created that aggregated traffic and population data together with their spatial dimensions (counting sites, measurement sites, districts, and statistical quarters). While these views were correct in terms of data modelling and provide a complete analytical basis for future work, they proved to be computationally heavy. Query execution was slow because MySQL needed to perform multiple joins across large tables (including millions of hourly traffic records) before applying the yearly aggregation. As a result, the performance of these large views was insufficient for analysis and rapid iteration.
+In a first step, comprehensive yearly views were created that aggregated traffic and population data together with their spatial dimensions (counting sites, measurement sites, districts, and statistical quarters).
 
 ## Detailed Yearly Traffic View (Full Spatial Model)
 
@@ -564,7 +614,7 @@ GROUP BY
     measurementsite.direction,
     quarter.city_district,
     quarter.statistical_quarter;
-    ```
+```
 
 ## Detailed Yearly Population View (Spatial Resolution)
 
@@ -658,7 +708,7 @@ GROUP BY year
 ORDER BY year;
 ```
 
-### Combined View for Comparative Analysis for KPI0
+## Combined View for Comparative Analysis for KPI0
 
 To support city-level trend analysis and visualization in tools such as Metabase, a combined view was created that brings together the yearly population totals and the corresponding yearly traffic intensity indicator. The population metric represents the end-of-year demographic count, while the traffic metric is derived from normalized yearly averages across all counting sites, providing a representative measure of citywide mobility intensity.
 
@@ -716,25 +766,7 @@ The following SQL excerpt highlights the core of the manual imputation of missin
          AND traffic_2012 IS NULL
     THEN 8143882
 
-    WHEN statistical_quarter = 'Witikon'
-         AND traffic_2012 IS NULL
-    THEN 912447
-
-    WHEN statistical_quarter = 'Weinegg'
-         AND traffic_2012 IS NULL
-    THEN 887316
-
-    WHEN statistical_quarter = 'Albisrieden'
-         AND traffic_2012 IS NULL
-    THEN 10381552
-
-    WHEN statistical_quarter = 'Saatlen'
-         AND traffic_2012 IS NULL
-    THEN 648512
-
-    WHEN statistical_quarter = 'Schwamendingen-Mitte'
-         AND traffic_2012 IS NULL
-    THEN 534118
+    [...]
 
     ELSE traffic_2012
 END AS traffic_2012_fixed,
@@ -749,13 +781,7 @@ END AS traffic_2012_fixed,
          AND traffic_2025 IS NULL
     THEN 9112940
 
-    WHEN statistical_quarter = 'Albisrieden'
-         AND traffic_2025 IS NULL
-    THEN 5982344
-
-    WHEN statistical_quarter = 'Schwamendingen-Mitte'
-         AND traffic_2025 IS NULL
-    THEN 608327
+    [...]
 
     ELSE traffic_2025
 END AS traffic_2025_fixed
@@ -765,7 +791,7 @@ END AS traffic_2025_fixed
 
 To identify structurally congested road sections, KPI 2 determines the typical peak hour for each counting site. For all measurements between 2023 and 2025, the analysis computes the average traffic volume for every hour of the day (0–23) and selects the hour with the highest mean value as the site’s representative peak hour.
 
-A threshold of 700 vehicles/hour is used to classify capacity pressure:
+A threshold of 700 vehicles per hour was chosen based on exploratory analysis to capture consistently high traffic volumes rather than isolated peaks:
 
 | Average Volume | Classification |
 |----------------|----------------|
@@ -871,21 +897,57 @@ FROM ranked_directions
 WHERE rn = 1
 ORDER BY dominance_share DESC;
 ```
+The resulting analytical views created in MySQL Workbench are shown below:
 
-```{r views_screenshot, echo=FALSE, out.width="45%", fig.cap="Overview of analytical SQL views in MySQL Workbench, including both KPI-specific and supporting views"}
+```{r views_screenshot, echo=FALSE, fig.pos="H", out.width="45%", fig.cap="Overview of analytical SQL views in MySQL Workbench, including both KPI-specific and supporting views"}
 knitr::include_graphics("materials_for_report_later/screenshots/views.png")
 ```
 
+While these views are correct from a data modelling perspective and provide a complete analytical foundation for the defined KPIs, they proved to be computationally expensive in practice. Query execution times were high, as MySQL had to perform multiple joins across large base tables, including millions of hourly traffic records—before applying yearly aggregations. As a result, direct use of these views was not suitable for interactive analysis and rapid iteration in BI tools, motivating the optimization step coming next.
+
 # Query Performance Optimization for Metabase & Database
 
-While building the KPIs we quickly noticed that runtime is long on the largest traffic views, and related views, ranging from 2-10mins for one view query.
-Following the guidelines from the *SQL Performance* lecture (5.1 presentation + 5.5 exercise), we created an optimized version of the SQL views that helps with re-execution of SQL scripts and Metabase operations.
+While building the KPIs it was quickly noticed that runtime is long on the largest traffic views, and related views, ranging from 2-10mins for one view query. Following the guidelines from the *SQL Performance* lecture (5.1 presentation + 5.5 exercise), we created an optimized version of the SQL views that helps with re-execution of SQL scripts and Metabase operations.
 
 ## Original Scripts Problem Diagnosis
 
 - **Non-SARGable filters** such as `YEAR(timestamp)` forced full table scans across ~22M traffic rows.
 - **Missing composite indexes** meant that the database had to sort and scan even when we filtered by `measurement_site_id`.
 - **Metabase query plan** showed `type = ALL`, confirming that the optimizer could not use our columns efficiently.
+
+In line with the course guidelines, performance-critical queries were deliberately restricted to relevant subsets of the data using explicit `WHERE` filters (e.g. limiting traffic measurements to the years 2023–2025 instead of processing the full time range). This reduction of the processed data volume was essential to make index-based optimizations effective, as indexing provides limited benefit when queries scan the entire table.
+
+## Execution Plan Analysis
+
+To validate the identified performance issues and to assess the effect of the applied optimizations, execution plans were analysed using the **Visual EXPLAIN** feature in MySQL Workbench.
+
+The following query represents the core aggregation logic used for KPI 2 and was used to generate the Visual EXPLAIN shown below:
+
+```sql
+SELECT
+    cs.counting_site_id,
+    HOUR(tm.timestamp) AS hour,
+    AVG(tm.vehicle_count) AS avg_volume
+FROM trafficmeasurement tm
+JOIN measurementsite ms 
+    ON tm.measurement_site_id = ms.measurement_site_id
+JOIN countingsite cs
+    ON ms.counting_site_id = cs.counting_site_id
+WHERE tm.timestamp >= '2023-01-01'
+  AND tm.timestamp <  '2026-01-01'
+GROUP BY cs.counting_site_id, HOUR(tm.timestamp);
+```
+
+Prior to optimization, the query structure (most notably the use of non-SARGable predicates such as `YEAR(timestamp)`) prevented effective index usage. For large fact tables like `TrafficMeasurement`, this typically forces the MySQL optimizer to fall back to a full table scan (type = ALL), which explains the previously observed execution times of several minutes.
+
+After introducing targeted indexes and rewriting time-based filters to be SARGable, the execution plan changed substantially. The Visual EXPLAIN output confirms that full table scans are avoided on the TrafficMeasurement table. Instead, the optimizer uses indexed key lookups (via idx_tm_composite) combined with nested-loop joins on small intermediate result sets. Although a temporary table is still required for the final GROUP BY aggregation, data access is now restricted to indexed subsets of the table.
+
+Overall, the execution plan analysis confirms that the applied optimizations significantly reduced the amount of data processed during query execution. This resulted in a runtime improvement from several minutes to a few seconds and enabled interactive analysis and dashboard usage in Metabase.
+
+```{r visual_explain_screenshot, echo=FALSE, fig.pos="H", out.width="80%", fig.cap="Visual EXPLAIN of an optimized KPI query, illustrating index-based access paths and the absence of full table scans on the TrafficMeasurement table."}
+knitr::include_graphics("materials_for_report_later/screenshots/visual_explain.png")
+```
+
 
 ## Actions Taken
 
@@ -896,7 +958,7 @@ Following the guidelines from the *SQL Performance* lecture (5.1 presentation + 
    ```
    These two lines (run once) already bring query time from minutes to seconds.
 
-2. **Rewrote the heavy views with SARGable predicates** (files stored in `appendix`):
+2. **Rewrote the heavy views with SARGable predicates** (files stored in Appendix):
    - `v_traffic_yearly.sql`
    - `v_traffic_city_yearly.sql`
    - `v_kpi2_bottlenecks.sql`
@@ -909,7 +971,7 @@ Following the guidelines from the *SQL Performance* lecture (5.1 presentation + 
    ```
    Replacing `YEAR(tm.timestamp)` with a date range lets MySQL use the timestamp index (lecture example of SARGable).
 
-3. **Explanation helper** – `sql scripts_optimized/run_explain_checks.sql` contains `EXPLAIN` statements for each KPI view. After running the indexes + views we expect `type = range` or `ref`, never `ALL`.
+3. **Explanation helper** – `sql scripts_optimized/run_explain_checks.sql` contains `EXPLAIN` statements for each KPI view. After running the indexes and views we expect `type = range` or `ref`, never `ALL`.
 
 ## Result
 
@@ -917,7 +979,7 @@ Following the guidelines from the *SQL Performance* lecture (5.1 presentation + 
 - The optimization package is reproducible: run the index script, rerun the four optimized views, then sync Metabase.
 - All scripts are documented in git repository and appendix.
 
-```{r index_runtime_screenshot, echo=FALSE, out.width="100%", fig.cap="MySQL Workbench action log while creating the new indexes. Even on the full dataset the statements finish within seconds, which validates the low overhead of the optimization step."}
+```{r index_runtime_screenshot, echo=FALSE, fig.pos="H", out.width="100%", fig.cap="MySQL Workbench action log while creating the new indexes. Even on the full dataset the statements finish within seconds, which validates the low overhead of the optimization step."}
 knitr::include_graphics("materials_for_report_later/screenshots/time_runned_efficient_index_script.png")
 ```
 
@@ -951,17 +1013,17 @@ The aggregated city-level traffic indicator is stored using a fixed-point `DECIM
 
 # Visualization & Decision Support
 
-The final layer of the project is the delivery of actionable insights through an interactive Metabase dashboard. By connecting Metabase to the optimized MySQL views and materialized tables, we allow urban planners to explore the data dynamically without writing SQL code.
+The final layer of the project is the delivery of actionable insights through an interactive Metabase dashboard. By connecting Metabase to the materialized tables, we allow urban planners to explore the data dynamically without writing SQL code.
 
 ## Metabase Dashboard Concept
 
-The dashboard is designed to visualise the core questions & insights defined in our KPI framework. It is divided into three visual topics:
+The dashboard is designed to visualize the core questions & insights defined in our KPI framework. It is divided into three visual topics:
 
 ### 1. Citywide Overview (KPI 0)
 This dual-axis chart compares the total population growth with the average traffic intensity across Zurich from 2012 to 2025.
 
-
 **Key Insight:** While the population has grown steadily by over 14%, traffic intensity dropped significantly in 2020 and has remained below pre-pandemic levels, suggesting a shift in mobility behavior.<br>
+
 ### 2. District Pressure Map (KPI 1)<br>
 - **Visual:** A table grouping districts by their "Stress Index" classification (Commuter Pressure vs. Residential Pressure vs Insufficient data).<br>
 - **Insight:** Identifies specific districts that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infraestructure measures.<br>
@@ -979,31 +1041,50 @@ This dual-axis chart compares the total population growth with the average traff
 
 ## Project Achievements
 This project successfully transformed raw, converted open data into a robust analytical insights for the City of Zurich.<br>
+
 1.  **Data Design & Integration:** We consolidated over 21 million traffic records with demographic and spatial data into a clean 3NF schema.<br>
+
 2.  **Analysis Concept Design:** The "Stress Index" provides a practical, comparable metric for urban analysis and provides practical insights for stakeholders.<br>
-3.  **Performance Optimization:** We learned that "Big Data" in a relational database requires careful designing. By implementing indexing and SARGable queries that we learned in course, we reduced query times from minutes to seconds. This enabled us to build a dashboard that provides real-time reporting.
+
+3.  **Performance Optimization:** We learned that working with large volumes of data in a relational database requires careful design choices. By applying indexing and SARGable queries introduced in the course, and by introducing materialized tables for expensive aggregations, we were able to reduce query execution times from several minutes to a few seconds. This optimization step was essential for building a dashboard that supports interactive, near real-time reporting.
 
 ## Conclusion for our Client
+
 Based on our data analysis, we can offer the Urban Planning Department three main strategic takeaways.
 
 **1. The Success (KPI 0):**  
 First, the trend analysis brings good news: **Zurich is growing** (population +14%) **without** a proportional **explosion** in car traffic. The **post-2020** divergence where population climbs while **traffic stabilizes** suggests that the public transport focused Zurich is real. The city is not drowning in cars despite its growth, which validates current public transport focused policies.
 
-**2. Uneven Stress Distribution (KPI 1):**  
-However, this success is not geographically uniform. Our **Stress Index** highlights a divide:
-*   **Commuter Funnels:** Specific quarters like **Enge (District 2, +150.2% Stress)** and **Fluntern (District 7, +92.0% Stress)** are acting as pressurized entry valves, their traffic growth vastly outpaces population. These areas require intervention or P+R incentives.
-*   **Residential Success Zones:** Conversely, **Escher Wyss (District 5, -134% Stress)** and **Altstetten (District 9, -73.3% Stress)** might be and example of successful urban living. In Escher Wyss, population nearly doubled (+89%) while traffic dropped (-45%), proving that high-density living can be achieved with low car dependency. However, local context need to be explored, other reasons might be present.
+**2. Uneven Stress Distribution (KPI 1)**  
 
-**3. Smarter Capacity Management (KPI 3):**  
+However, this overall development is not geographically uniform. The **Stress Index** reveals a clear spatial divide across the city:
+
+- **Commuter Funnels:**  
+Specific quarters such as **Enge (District 2, +150.2% Stress)** and **Fluntern (District 7, +92.0% Stress)** act as pressurized entry corridors, where traffic growth vastly outpaces population growth. These areas indicate strong commuter pressure and may require targeted interventions, such as traffic management measures or park-and-ride (P+R) incentives.
+
+- **Residential Success Zones:**  
+In contrast, quarters like **Escher Wyss (District 5, -134% Stress)** and **Altstetten (District 9, -73.3% Stress)** may represent examples of successful urban living. In Escher Wyss, the population nearly doubled (+89%) while traffic volumes decreased (-45%), suggesting that high-density living can be achieved with low car dependency. However, local context and additional factors should be examined, as other influences may also contribute to this pattern.
+
+**3. Smarter Capacity Management (KPI 3):** 
+
 Finally, we identified "hidden capacity" in our directional analysis. Some streets show inefficient bi-directional traffic flow.  
 For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrasse (71% dominance toward Heimplatz)** are prime candidates for **dynamic tidal flow systems**. Implementing reversible lanes here could unlock peak-hour capacity without the cost and disruption of infraestructure constructions.
 
 ## Lessons Learned
-- **Data Structure Design is Important:** A significant portion of time was spent handling the design of the database structure. Another data scientist usual topic is also the time consuming task of data quality & data cleaning
-- **Optimization should be done Upfront:** Initial attempts to run aggregations on the full 20-million-row dataset were frustratingly slow. Data query efficiency, is better implemented upfront.
-- **Value of Staging:** using a two-stage ETL process (Staging -> Production) saved us from multiple "start over" moments.
-- **Teamwork:** We used github to store scripts and miro to share ideas and progress. We would be still happy to hear other inspiration of teamwork with database management. We think that the current setup for teamwork though necessary, but could be improved.
-- **Gen-AI for Database:** Since mysql and metabase are not integrated with AI, we relied on web-based AI tools, we find that, it is helpful but not optimal due to context limitation. We intend to find better AI usage for better context engineering while working with databases.
+- **Database Design and Data Quality:**  
+  A key lesson from this project is the importance of designing a well-structured database schema. A significant amount of time was spent refining the data model and handling data quality and cleaning tasks, highlighting that careful design is essential for efficient database work.
+
+- **Project Organization and Performance Planning:**  
+  We learned that performance considerations should be integrated from the beginning of a project. Early attempts to aggregate the full 20-million-row dataset resulted in long execution times, demonstrating that query efficiency and performance-aware design should be planned early.
+
+- **Value of Staging Layers:**  
+  Using a two-stage ETL process (Staging → Production) proved highly valuable. This separation allowed us to iteratively clean and transform data without repeatedly rebuilding the entire schema, preventing several potential “start-over” situations.
+
+- **Teamwork in Database Projects:**  
+  For collaboration, we relied on GitHub to manage SQL scripts and Miro to share ideas and track progress. While this setup enabled basic teamwork, we found that collaboration in database projects is more challenging than in traditional programming workflows. Improving coordination and review processes for database changes could be an area for future improvement.
+
+- **Use of Artificial Intelligence in Database Work:**  
+  Since MySQL and Metabase do not provide native AI support, we used external, web-based generative AI tools to assist with SQL formulation, debugging, and documentation. While this was helpful, limitations in context awareness became apparent. In future projects, we could explore more integrated AI-assisted workflows to improve efficiency and contextual understanding.
 
 # Individual Team Member Reflections
 
@@ -1011,14 +1092,26 @@ For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrass
 - [to be added]<br>
 
  **Valeska Blank**
- Key Learning: 
-[to be added]<br>
+ 
+- **Data Model Design is Crucial:** I learned that designing a normalized and well-structured data model was more complex than expected, but absolutely essential for all subsequent analysis. Early modelling decisions strongly influenced how easily the data could be transformed, queried, and extended later in the project.
+
+- **Each Transformation Step Needs Careful Planning:** I learned that insufficient planning of ETL steps often leads to duplicated work. Several transformations had to be revised once methodological issues became visible, which highlighted the importance of thinking through each step before implementation.
+
+- **Performance Cannot Be an Afterthought:** I learned that even conceptually correct SQL views can become unusable when applied to large datasets like ours. Long execution times forced us to address performance explicitly through indexing, SARGable queries, and materialized tables, which significantly improved usability.
+
+- **Real-World Data is Messy:** I learned that real-world datasets rarely behave as expected. Missing values, inconsistent formats, and non-additive measures caused persistent NULL values that could not always be resolved through aggregation alone. In some cases, explicit and carefully considered imputation was required to ensure completeness and comparability of the KPIs.
+
+- **Separation of Analytical and Operational Layers Matters:** I learned that clearly separating analytical views (for correctness and logic) from performance-optimized structures (for dashboards and BI tools) is essential, especially when working with interactive tools such as Metabase.
 
  **Dongyuan Gao**
-- This project is my first database project and experience. I learned through hands on experience how a data structure is designed and how a database setup with mysql(via vm) works, and how we can connect it to a frontend tool(metabase).
-- A very important lesson i learned is we should always consider the efficiency in mind, while writing SQL queries, and designing the database. Otherwise, it wouldnt be possibole to have meaningful usecase, especially for the frontend visualisations.
-- One aspect that I would still need to discover in future project is, how to collab with team when we do a database project like this. Since queries and database desgins are not easy to communicate with team, we used git for collaboration, to keep the scripts and concepts in files there. It is still not easy to find bugs or improve it based on teammates work, comparing to code review in programing which I am used to.Therefore, I am still not sure how it is done in practice. Or are queries more for one time usage for teammembers? This is the question that I will keep in mind for future projects.
-- Another note about teamwork, in my experience, it would be better to already have a metabase or other data visual tool in place, while working on the project, instead of implementing it in the end. Then it will be easier to have the data results ready for inspect, during the work.
+ 
+- **First Hands-on Database Experience:** This project is my first database project and experience. I learned through hands-on experience how a data structure is designed and how a database setup with MySQL (via VM) works, and how we can connect it to a frontend tool (Metabase).
+
+- **Efficiency and Performance Awareness:** A very important lesson I learned is that we should always consider the efficiency while writing SQL queries and designing the database. Otherwise, it wouldn't be possible to have meaningful use cases, especially for the frontend visualizations.
+
+- **Challenges of Team Collaboration in Database Projects:** One aspect that I would still need to discover in future project is how to collaborate with team when we do a database project like this. Since queries and database desgins are not easy to communicate with team, we used git for collaboration, to keep the scripts and concepts in files there. It is still not easy to find bugs or improve it based on teammates work, comparing to code review in programming which I am used to. Therefore, I am still not sure how it is done in practice. Or are queries more for one time usage than for team members? This is the question that I will keep in mind for future projects.
+
+- **Early Integration of Visualization Tools:** Another note about teamwork, in my experience, it would be better to already have a Metabase or other data visual tool in place, while working on the project, instead of implementing it in the end. Then it will be easier to have the data results ready for inspection during the work.
 
 ** Cyriel Van Helleputte**
  [to be added]
