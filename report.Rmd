@@ -57,25 +57,7 @@ The following sections describe the individual layers of this architecture in de
 
 ### System Access and Verification
 
-The database system was deployed on a university-hosted Windows virtual machine and is accessible via the internal university network.
-
-**Virtual Machine Access:**
-
-Host: win-hs-007.dbm.ls.eee.intern
-Username: labadmin  
-Password: provided by the instructors via ILIAS
-
-**Database (MySQL):**
-
-Database: traffic_population_zh  
-Access is configured using project-specific database users.
-
-**Metabase:**
-
-Metabase is installed and executed locally on the virtual machine. After logging into the VM, the application can be started and accessed via:
-URL: http://localhost:3000
-
-For security reasons, project-specific credentials for MySQL and Metabase are not included in this report. Evaluation credentials can be provided to the instructor upon request.
+The database system was deployed on the university-hosted Windows virtual machine. All access credentials and connection details required for evaluation were provided via "Access codes for project work" on Ilias.
 
 # Dataset & Preprocessing
 
