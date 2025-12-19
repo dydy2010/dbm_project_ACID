@@ -907,7 +907,7 @@ While these views are correct from a data modelling perspective and provide a co
 
 # Query Performance Optimization for Metabase & Database
 
-While building the KPIs it was quickly noticed that runtime is long on the largest traffic views, and related views, ranging from 2-10mins for one view query. Following the guidelines from the *SQL Performance* lecture (5.1 presentation + 5.5 exercise), we created an optimized version of the SQL views that helps with re-execution of SQL scripts and Metabase operations.
+While building the KPIs it was quickly noticed that runtime is long on the largest traffic views, and related views, ranging from 2-10 minutes for one view query. Following the guidelines from the SQL Performance lecture, we created an optimized version of the SQL views that helps with re-execution of SQL scripts and Metabase operations.
 
 ## Original Scripts Problem Diagnosis
 
@@ -951,14 +951,18 @@ knitr::include_graphics("materials_for_report_later/screenshots/visual_explain.p
 
 ## Actions Taken
 
-1. **Created targeted indexes** (`sql scripts_optimized/9_create_indexes_performance.sql`):
-   ```sql
-   CREATE INDEX idx_tm_measurement_site_id ON TrafficMeasurement(measurement_site_id);
-   CREATE INDEX idx_tm_timestamp          ON TrafficMeasurement(timestamp);
-   ```
-   These two lines (run once) already bring query time from minutes to seconds.
+1. **Created targeted indexes**:
 
-2. **Rewrote the heavy views with SARGable predicates** (files stored in Appendix):
+    ```sql
+    CREATE INDEX idx_tm_measurement_site_id
+        ON TrafficMeasurement (measurement_site_id);
+    
+    CREATE INDEX idx_tm_timestamp
+        ON TrafficMeasurement (timestamp);
+    ```
+These two lines (run once) already bring query time from minutes to seconds.
+
+2. **Rewrote the heavy views with SARGable predicates** (see Appendix F):
    - `v_traffic_yearly.sql`
    - `v_traffic_city_yearly.sql`
    - `v_kpi2_bottlenecks.sql`
@@ -969,9 +973,18 @@ knitr::include_graphics("materials_for_report_later/screenshots/visual_explain.p
    WHERE tm.timestamp >= '2023-01-01'
      AND tm.timestamp <  '2026-01-01'
    ```
-   Replacing `YEAR(tm.timestamp)` with a date range lets MySQL use the timestamp index (lecture example of SARGable).
+   Replacing `YEAR(tm.timestamp)` with a date range lets MySQL use the timestamp index.
 
-3. **Explanation helper** – `sql scripts_optimized/run_explain_checks.sql` contains `EXPLAIN` statements for each KPI view. After running the indexes and views we expect `type = range` or `ref`, never `ALL`.
+3. **Explanation helper**
+To verify that the defined indexes are effectively used, `EXPLAIN` statements were executed for all KPI-related views as well as for the underlying base aggregation. The execution plans show indexed access paths such as `range` or `ref`, rather than full table scans (`ALL`), confirming that the queries benefit from the applied indexing strategy.
+
+For example, the following statement was used to analyse the execution plan of the KPI3 view:
+
+```sql
+EXPLAIN SELECT *
+FROM v_kpi3_dominant_direction
+LIMIT 10;
+```
 
 ## Result
 
