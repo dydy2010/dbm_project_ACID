@@ -1017,6 +1017,8 @@ The dashboard is designed to visualize the core questions & insights defined in 
 ### 1. Citywide Overview (KPI 0)
 This dual-axis chart compares the total population growth with the average traffic intensity across Zurich from 2012 to 2025.
 
+![Citywide Overview Dashboard](materials_for_report_later/PopulationVSTrafficGrowth.png)
+
 **Key Insight:** While the population has grown steadily by over 14%, traffic intensity dropped significantly in 2020 and has remained below pre-pandemic levels, suggesting a shift in mobility behavior.<br>
 
 ### 2. District Pressure Map (KPI 1)<br>
