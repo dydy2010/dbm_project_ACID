@@ -1023,13 +1023,22 @@ This dual-axis chart compares the total population growth with the average traff
 
 ### 2. District Pressure Map (KPI 1)<br>
 - **Visual:** A table grouping districts by their "Stress Index" classification (Commuter Pressure vs. Residential Pressure vs Insufficient data).<br>
+
+
+
 - **Insight:** Identifies specific districts that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infraestructure measures.<br>
 - **Decision Recommendation for Client:** Targeted infrastructure investment improving roads in "Commuter" zones. Focus on living comfort design in "Residential" growth zones.<br>
-[please insert the screenshot of the dashboard here, and adjust the description]
+
 
 ### 3. Operational Bottlenecks (KPI 2 & 3)<br>
 - **Visual:** A list of "Red Flag" intersections where the peak-hour volume consistently exceeds 700 vehicles/hour.<br>
+
+![Citywide Overview Dashboard](materials_for_report_later/Top10BottlenecksAndPeakHours.png)
+
 - **Visual:** A breakdown of directional imbalance for major intersections.<br>
+
+![Citywide Overview Dashboard](materials_for_report_later/KP3DirectionClassificationStrongCorridorDependency.png)
+
 - **Decision Support:** The bottlenecks are the critical areas that the client should focus as painpoints for priority. And a directional imbalance is somewhere, the client could implement hourly traffic control measures(change lane numbers on one direction depending on time of the day).<br>
 [please insert the screenshot of the dashboard here, and adjust descriptions]
 
