@@ -1018,7 +1018,7 @@ The dashboard is designed to visualize the core questions & insights defined in 
 This dual-axis chart compares the total population growth with the average traffic intensity across Zurich from 2012 to 2025.
 
 ```{r population-traffic-growth, fig.cap="Population vs Traffic Growth", fig.align='center', out.width='80%', fig.pos='H'}
-knitr::include_graphics("materials_for_report_later/PopulationVSTrafficGrowth.jpeg")
+knitr::include_graphics("materials_for_report_later/FinalScreenShots/PopulationVSTrafficGrowth.jpeg")
 ```
 
 **Key Insight:** While the population has grown steadily by over 14%, traffic intensity dropped significantly in 2020 and has remained below pre-pandemic levels, suggesting a shift in mobility behavior.<br>
@@ -1026,8 +1026,15 @@ knitr::include_graphics("materials_for_report_later/PopulationVSTrafficGrowth.jp
 ### District Pressure Map (KPI 1)<br>
 This table groups districts by their "Stress Index" classification (Commuter Pressure vs. Residential Pressure vs Insufficient data).<br>
 
+
 ```{r stress-index-classification, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
-knitr::include_graphics("materials_for_report_later/StressIndexClassificationPressureZones.png")
+knitr::include_graphics("materials_for_report_later/FinalScreenShots/DependencyClassification.jpeg")
+```
+```{r stress-index-classification, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
+knitr::include_graphics("materials_for_report_later/FinalScreenShots/ZurichAverageVolumeDistrictMap.jpeg")
+```
+```{r stress-index-classification, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
+knitr::include_graphics("materials_for_report_later/FinalScreenShots/ZurichNumberOfDistrictsMap.jpeg")
 ```
 
 - **Key Insight:** Identifies specific districts that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infraestructure measures.<br>
@@ -1042,7 +1049,7 @@ knitr::include_graphics("materials_for_report_later/StressIndexClassificationPre
 - **Visual:** A list of "Red Flag" intersections where the peak-hour volume consistently exceeds 700 vehicles/hour.<br>
 
 ```{r Bottleneck-peak-hours, fig.cap="Top 10 Bottlenecks and Peak Hours", fig.align='center', out.width='80%', fig.pos='H'}
-knitr::include_graphics("materials_for_report_later/Top10BottlenecksAndPeakHours.png")
+knitr::include_graphics("materials_for_report_later/FinalScreenShots/Top10Bottlenecks.jpeg")
 ```
 - **Key Insight**: Ten intersections consistently exceed operational capacity during peak hours, with afternoon rush (16:00-17:00) representing the primary constraint period. These bottlenecks create systematic delays and potentially degrade network performance across surrounding areas.
 
@@ -1053,7 +1060,7 @@ knitr::include_graphics("materials_for_report_later/Top10BottlenecksAndPeakHours
 - **Visual:** A breakdown of directional imbalance for major intersections.<br>
 
 ```{r Directional-Imbalance, fig.cap="Directional Imbalance for Major Intersections", fig.align='center', out.width='100%', fig.pos='H'}
-knitr::include_graphics("materials_for_report_later/KP3DirectionClassificationStrongCorridorDependency.png")
+knitr::include_graphics("materials_for_report_later/FinalScreenShots/DirectionDependency.jpeg")
 ```
 
 - **Key Insight:** Several intersections exhibit strong directional dominance (>60% flow in one direction), indicating potential for tidal flow management to optimize capacity during peak periods. Extreme cases like Nansenstrasse (>99.9% directional concentration) function as one-way commuter. <br>
