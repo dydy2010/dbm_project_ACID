@@ -1010,6 +1010,10 @@ The aggregated city-level traffic indicator is stored using a fixed-point `DECIM
 
 The final layer of the project is the delivery of actionable insights through an interactive Metabase dashboard. By connecting Metabase to the materialized tables, we allow urban planners to explore the data dynamically without writing SQL code.
 
+```{r dashboard_view_final, fig.cap="Dashboard View", fig.align='center', out.width='100%', fig.pos='H'}
+knitr::include_graphics("materials_for_report_later/FinalScreenShots/DashboardView.png")
+```
+
 ## Metabase Dashboard Concept
 
 The dashboard is designed to visualize the core questions & insights defined in our KPI framework. It is divided into three visual topics:
@@ -1023,23 +1027,23 @@ knitr::include_graphics("materials_for_report_later/FinalScreenShots/PopulationV
 
 **Key Insight:** While the population has grown steadily by over 14%, traffic intensity dropped significantly in 2020 and has remained below pre-pandemic levels, suggesting a shift in mobility behavior.<br>
 
-### District Pressure Map (KPI 1)<br>
-This table groups districts by their "Stress Index" classification (Commuter Pressure vs. Residential Pressure vs Insufficient data).<br>
+### Quarter Pressure Map (KPI 1)<br>
+This table groups quarters by their "Stress Index" classification (Commuter Pressure vs. Residential Pressure vs Insufficient data).<br>
 
 
-```{r stress-index-classification, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
+```{r stress-index-classification, fig.cap="Zurich Average Volume Quarter Map", fig.align='center', out.width='80%', fig.pos='H'}
 knitr::include_graphics("materials_for_report_later/FinalScreenShots/StressIndexClassification.jpeg")
 ```
-```{r ZurichAverageVolumeDistrictMap, fig.cap="Average Volume per District", fig.align='center', out.width='80%', fig.pos='H'}
+```{r ZurichAverageVolumeDistrictMap, fig.cap="Average Volume Per Quarter", fig.align='center', out.width='80%', fig.pos='H'}
 knitr::include_graphics("materials_for_report_later/FinalScreenShots/ZurichAverageVolumeDistrictMap.jpeg")
 ```
-```{r ZurichNumberOfDistrictsMap, fig.cap="Number of Bottlenecks per District", fig.align='center', out.width='80%', fig.pos='H'}
+```{r ZurichNumberOfDistrictsMap, fig.cap="Zurich Nr of Bottlenecks in Quarters", fig.align='center', out.width='80%', fig.pos='H'}
 knitr::include_graphics("materials_for_report_later/FinalScreenShots/ZurichNumberOfDistrictsMap.jpeg")
 ```
 
-- **Key Insight:** Identifies specific districts that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infraestructure measures.<br>
+- **Key Insight:** Identifies specific quarters that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infraestructure measures.<br>
 
-- **Decision Recommendation for Client:**  Direct investments toward _commuter-pressure_ zones requiring road capacity expansion and traffic management. In _residential-pressure_ districts, improve public transit and other mobility options such as improved cycle-friendly roads to sustain traffic despite demographic growth.<br>
+- **Decision Recommendation for Client:**  Direct investments toward _commuter-pressure_ zones requiring road capacity expansion and traffic management. In _residential-pressure_ quarters, improve public transit and other mobility options such as improved cycle-friendly roads to sustain traffic despite demographic growth.<br>
 
 
 ### Operational Bottlenecks (KPI 2 & 3)<br>
@@ -1068,7 +1072,33 @@ knitr::include_graphics("materials_for_report_later/FinalScreenShots/DirectionDe
 
 - **Decision Support:** The bottlenecks are the critical areas that the client should focus as painpoints for priority. And a directional imbalance is somewhere, the client could implement hourly traffic control measures(change lane numbers on one direction depending on time of the day).<br>
 
+## NoSQL Integration and Verification Visuals
 
+We implemented a NoSQL integration using MongoDB. This step fulfilled the project requirement to "interactively work with the visualization of SQL and NoSQL queries" and demonstrate that their outputs are consistent.
+
+## Data Migration Strategy
+
+Instead of reimplementing the database in MongoDB, we mad use of our finalized SQL data model to **Extract** the verification datasets and imported into MongoDB.
+
+**Workflow:**
+
+1.  **Extract**: The confirmed **"Bottlenecks"** dataset (from KPI 2) was exported from Metabase as a clean CSV file.
+2.  **Load**: The dataset was imported into MongoDB, creating the collection `bottlenecks_analytics`.
+3.  **Verify**: Data types (Coordinates as Double, Volume as Integer) were verified during import to ensure schema correctness.
+
+## Visualization Comparison
+
+We connected Metabase to the MongoDB instance and recreated the exact same "Bottleneck Map" visualization.
+
+The following visualizations demonstrate that the results are identical. The spatial distribution of bottlenecks and their classification status remained preserved 100% during the migration to NoSQL.
+
+```{r nosql_comparison, echo=FALSE, fig.cap="Comparison of SQL (red) and NoSQL (blue) visualizations. The identical spatial patterns confirm successful data migration and query integrity.", out.width="100%", fig.show='hold', fig.align='center', fig.pos="H"}
+knitr::include_graphics(c("materials_for_report_later/FinalScreenShots/ZurichAverageVolumeDistrictMap.jpeg", "materials_for_report_later/FinalScreenShots/bottlenecks_analytics_nosql_map.png"))
+```
+
+## Conclusion on NoSQL
+
+This experiment confirmed that while our relational model (SQL) is superior for data normalization and integrity (relationships), the NoSQL model proved excellent for serving "read-optimized" analytical views. The map generation from MongoDB was noticeably snappier because it read from a single collection rather than executing a multi-table join.
 
 # Conclusions & Lessons Learned
 
@@ -1080,6 +1110,8 @@ This project successfully transformed raw, converted open data into a robust ana
 2.  **Analysis Concept Design:** The "Stress Index" provides a practical, comparable metric for urban analysis and provides practical insights for stakeholders.<br>
 
 3.  **Performance Optimization:** We learned that working with large volumes of data in a relational database requires careful design choices. By applying indexing and SARGable queries introduced in the course, and by introducing materialized tables for expensive aggregations, we were able to reduce query execution times from several minutes to a few seconds. This optimization step was essential for building a dashboard that supports interactive, near real-time reporting.
+
+
 
 ## Conclusion for our Client
 
