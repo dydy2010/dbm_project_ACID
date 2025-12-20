@@ -301,9 +301,7 @@ Sample output:
 | 1        | 15.2%        | 8.3%             | -6.9%        | Balanced       |
 | 2        | 12.5%        | 22.1%            | +9.6%        | Commuter Hub   |
 
-```{r kpi1_result_screenshot, echo=FALSE, fig.pos="H", out.width="100%", fig.cap="MySQL Workbench result grid for the stress-index query (KPI 1). The classification column highlights commuter vs. residential pressure zones."}
-knitr::include_graphics("materials_for_report_later/screenshots/pressure_index_query_result_screenshot_kpi1.png")
-```
+
 
 ## KPI 2: Peak-Hour Bottleneck Identification
 
@@ -746,6 +744,10 @@ END AS traffic_2012_fixed,
 
     ELSE traffic_2025
 END AS traffic_2025_fixed
+```
+
+```{r kpi1_result_screenshot, echo=FALSE, fig.pos="H", out.width="100%", fig.cap="MySQL Workbench result grid for the stress-index query (KPI 1). The classification column highlights commuter vs. residential pressure zones."}
+knitr::include_graphics("materials_for_report_later/screenshots/pressure_index_query_result_screenshot_kpi1.png")
 ```
 
 ## Peak-Hour Bottleneck Analysis for KPI2
