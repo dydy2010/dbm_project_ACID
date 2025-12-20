@@ -51,7 +51,7 @@ This document maps all requirements from the DBM Project Assignment against Team
 | Requirement | Status | Location in Report |
 |-------------|--------|-------------------|
 | Write at least one database query for use case insights | ✅ Fulfilled | Multiple queries: KPI 0, 1, 2, 3 views |
-| SQL query contains at least 8 different keywords | ✅ Fulfilled | Queries contain: SELECT, FROM, JOIN, WHERE, GROUP BY, ORDER BY, AVG, SUM, CASE, WHEN, WITH (CTE), HAVING, ROW_NUMBER, OVER, PARTITION BY, etc. |
+| SQL query contains at least 8 different keywords | ⚠️ **Partial** | Queries clearly use 8+ keywords but **not explicitly listed/counted** in report |
 | - JOIN tables | ✅ Fulfilled | All KPI queries use JOINs |
 | - Aggregation (e.g., AVG) | ✅ Fulfilled | AVG, SUM used throughout |
 | - GROUP BY | ✅ Fulfilled | All KPI queries use GROUP BY |
@@ -69,8 +69,8 @@ This document maps all requirements from the DBM Project Assignment against Team
 |-------------|--------|-------------------|
 | Indicate measures taken to optimize query speed | ✅ Fulfilled | Chapter 8 "Query Performance Optimization" |
 | Use 3+ database approaches to increase execution speed | ✅ Fulfilled | 1) Targeted indexes, 2) SARGable predicates, 3) Materialized tables |
-| Analyze execution plans before and after optimization | ✅ Fulfilled | Section 8.2 "Execution Plan Analysis" + Visual EXPLAIN screenshot (Figure 6) |
-| Measure runtimes before and after optimization | ✅ Fulfilled | "from several minutes to a few seconds" documented |
+| Analyze execution plans before and after optimization | ⚠️ **Partial** | Only "after" Visual EXPLAIN shown - no "before" screenshot for comparison |
+| Measure runtimes before and after optimization | ⚠️ **Partial** | Says "minutes to seconds" but **no specific numbers** provided |
 
 ---
 
@@ -86,7 +86,8 @@ This document maps all requirements from the DBM Project Assignment against Team
 | Show how user can interactively work with SQL visualization | ✅ Fulfilled | Dashboard screenshots demonstrate interactivity |
 | **Show how user can interactively work with NoSQL visualization** | ❌ **NOT FULFILLED** | **No NoSQL implementation** |
 | **Show SQL and NoSQL query outputs are the same** | ❌ **NOT FULFILLED** | **No NoSQL implementation** |
-| Demonstrate how visualization relates to original use case | ✅ Fulfilled | Chapter 11 - each KPI visualization has "Key Insight" and "Decision Recommendation" |
+| Demonstrate how visualization relates to original use case | ⚠️ **Partial** | Generic client recommendations provided, but no step-by-step fictitious user scenario |
+| Use a (fictitious) user to demonstrate how visualization improves a decision | ❌ **NOT FULFILLED** | No concrete user persona with specific dashboard interaction walkthrough |
 | Make recommendation for data-driven decision based on key figures | ✅ Fulfilled | Chapter 12.2 "Conclusion for our Client" - 3 strategic takeaways |
 
 ---
@@ -122,9 +123,10 @@ This document maps all requirements from the DBM Project Assignment against Team
 ### Data Model
 | Criterion | Status | Notes |
 |-----------|--------|-------|
-| Source data analysis shows structure/content with examples | ✅ Fulfilled | Tables showing raw columns, cleaned columns |
+| Source data analysis shows structure/content with examples | ⚠️ **Partial** | Column descriptions provided but **no actual sample rows shown** |
 | Conceptual model explains entities/relationships graphically | ✅ Fulfilled | ERD diagram with descriptions |
 | Database schema in DDL with correct data types, PK/FK, 3NF | ✅ Fulfilled | CREATE TABLE statements in appendices |
+| Show relationship between conceptual model and database schema | ⚠️ **Partial** | Implicitly shown but **no explicit mapping table** |
 
 ### Loading & Transformation
 | Criterion | Status | Notes |
@@ -135,7 +137,7 @@ This document maps all requirements from the DBM Project Assignment against Team
 ### Analytics
 | Criterion | Status | Notes |
 |-----------|--------|-------|
-| Data analysis with 8+ keywords in SQL | ✅ Fulfilled | Complex queries with CTEs, window functions |
+| Data analysis with 8+ keywords in SQL | ⚠️ **Partial** | Queries use CTEs, window functions - but **keywords not explicitly listed** |
 | Analysis relates directly to use case for decision rule calculation | ✅ Fulfilled | Each KPI tied to urban planning decisions |
 
 ### Optimization
@@ -162,7 +164,7 @@ This document maps all requirements from the DBM Project Assignment against Team
 ### Project Report
 | Criterion | Status | Notes |
 |-----------|--------|-------|
-| Formal criteria met (<40 pages, valid sources, format, deadline) | ⚠️ Partial | Page count to verify |
+| Formal criteria met (<40 pages, valid sources, format, deadline) | ⚠️ Partial | Page count to verify; **No References/Bibliography section for OECD citation and data sources** |
 | Well structured and clearly written | ✅ Fulfilled | Clear chapter structure, professional tone |
 
 ---
@@ -193,16 +195,23 @@ The project assignment **explicitly requires**:
 | Category | Fulfilled | Partial | Not Fulfilled |
 |----------|-----------|---------|---------------|
 | 1. Plan Database Application | 5 | 1 | 0 |
-| 2. Define Database Structure | 6 | 1 | 0 |
+| 2. Define Database Structure | 5 | 2 | 0 |
 | 3. Load and Transform Data | 6 | 0 | 0 |
-| 4. Database Analysis | 7 | 0 | 0 |
-| 5. Optimize Performance | 4 | 0 | 0 |
-| 6. Visualize and Apply | 4 | 2 | **3** |
-| 7. Write Report | 10 | 1 | 0 |
-| **TOTAL** | **42** | **5** | **3** |
+| 4. Database Analysis | 6 | 1 | 0 |
+| 5. Optimize Performance | 2 | 2 | 0 |
+| 6. Visualize and Apply | 2 | 4 | **4** |
+| 7. Write Report | 9 | 2 | 0 |
+| **TOTAL** | **35** | **12** | **4** |
 
 **Overall Assessment**: The report is comprehensive and well-written for the SQL portion. However, several gaps need attention:
 
 1. **CRITICAL**: NoSQL implementation is completely missing (required 3 times in Section 6)
-2. **IMPORTANT**: Parameterized/interactive Metabase queries not demonstrated
-3. **MINOR**: Raw data examples and source URLs should be added
+2. **CRITICAL**: Parameterized/interactive Metabase queries not demonstrated  
+3. **CRITICAL**: Fictitious user scenario walkthrough missing
+4. **IMPORTANT**: Raw data examples (sample rows) not shown
+5. **IMPORTANT**: Data source URLs not provided
+6. **SHOULD FIX**: 8+ SQL keywords not explicitly listed
+7. **SHOULD FIX**: Conceptual-to-physical model mapping table missing
+8. **SHOULD FIX**: Before/after optimization comparison incomplete (only "after" shown)
+9. **SHOULD FIX**: Specific timing numbers not provided
+10. **MINOR**: References/Bibliography section missing for OECD and data sources

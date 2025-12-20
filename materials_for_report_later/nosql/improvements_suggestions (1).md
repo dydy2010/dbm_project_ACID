@@ -232,6 +232,184 @@ by different departments of the City of Zurich, satisfying the requirement for
 
 ---
 
+### Critical Issue 5: Missing Fictitious User Scenario
+
+**The Problem**
+
+The requirement explicitly states:
+> "The decision rule is applied to a **(fictitious) user** based on the key figure in order to positively influence a decision in the use case."
+
+And:
+> "**Use a user to demonstrate** how the visualization improves a specific decision with data."
+
+Your report has general recommendations ("Direct investments toward commuter-pressure zones...") but doesn't show a **concrete user scenario** walking through the decision process step-by-step.
+
+**The Solution** (20 minutes):
+
+Add a subsection in Chapter 11 (after the KPI visualizations):
+
+```markdown
+### Decision Scenario: Urban Planner Budget Allocation
+
+To demonstrate how the dashboard supports real decisions, consider the following 
+scenario:
+
+**User:** Sarah, Senior Traffic Planner at the Zurich Urban Planning Department
+
+**Task:** Allocate CHF 2 million in traffic infrastructure budget for 2026
+
+**Decision Process using the Dashboard:**
+
+1. Sarah opens the Metabase dashboard and reviews the **Stress Index Classification** 
+   (Figure X). She identifies that **Enge (District 2)** shows a stress index of 
+   +150.2%, classified as "Commuter Pressure."
+
+2. According to the decision rule (Stress Index > +10% = High commuter pressure), 
+   this district requires capacity expansion or traffic management measures.
+
+3. Sarah then examines the **Peak-Hour Bottlenecks** visualization and finds that 
+   **Tessinerplatz** in District 2 has an average peak volume of 1,847 vehicles/hour 
+   at 17:00, well above the 700 threshold.
+
+4. **Decision:** Sarah allocates CHF 800,000 to signal optimization at Tessinerplatz 
+   and CHF 400,000 for a park-and-ride feasibility study at the district boundary.
+
+5. **Outcome:** The data-driven approach ensures budget is directed to the highest-
+   impact areas rather than relying on intuition or political pressure.
+
+This scenario illustrates how the KPI framework transforms raw traffic data into 
+actionable budget decisions.
+```
+
+---
+
+### Critical Issue 6: Missing Explicit SQL Keyword Count
+
+**The Problem**
+
+The requirement states:
+> "The SQL query should contain at least **8 different keywords**"
+
+Your queries clearly use many keywords (SELECT, FROM, JOIN, WHERE, GROUP BY, ORDER BY, CASE, WHEN, WITH, SUM, AVG, ROW_NUMBER, OVER, PARTITION BY, etc.) but you **never explicitly list or count them** to show you meet the requirement.
+
+**The Solution** (10 minutes):
+
+Add a brief note in Section 7 (Analyzing & Evaluating Data) after presenting a complex query:
+
+```markdown
+### SQL Complexity Analysis
+
+The KPI queries demonstrate appropriate complexity by utilizing the following 
+SQL keywords and constructs:
+
+1. **SELECT** - attribute selection
+2. **FROM** - table specification  
+3. **JOIN** - table combination (INNER JOIN, LEFT JOIN)
+4. **WHERE** - row filtering with SARGable predicates
+5. **GROUP BY** - aggregation grouping
+6. **ORDER BY** - result sorting
+7. **CASE/WHEN** - conditional logic for classification
+8. **WITH** (CTE) - common table expressions for readability
+9. **SUM/AVG** - aggregate functions
+10. **ROW_NUMBER() OVER (PARTITION BY...)** - window functions
+11. **ROUND/CAST** - type conversion and formatting
+
+This exceeds the minimum requirement of 8 different keywords and demonstrates 
+proficiency with advanced SQL constructs including CTEs and window functions.
+```
+
+---
+
+### Critical Issue 7: Missing Conceptual-to-Physical Schema Mapping
+
+**The Problem**
+
+The requirement states:
+> "Also show the **relationship between the conceptual model and the database schema**"
+
+You have an ERD (Figure 2) and DDL code in appendices, but you don't explicitly show HOW the conceptual entities map to physical tables - especially where they differ.
+
+**The Solution** (15 minutes):
+
+Add a mapping table in Section 4 after the ERD description:
+
+```markdown
+### Mapping: Conceptual Model to Physical Schema
+
+The following table shows how conceptual entities from the ER diagram correspond 
+to physical database tables:
+
+| Conceptual Entity | Physical Table | Key Differences |
+|-------------------|----------------|-----------------|
+| CountingSite | `countingsite` | `axis` column dropped due to inconsistent values |
+| MeasurementSite | `measurementsite` | No changes |
+| TrafficMeasurement | `trafficmeasurement` | Added surrogate key `traffic_measurement_id` |
+| TrafficSignal | `trafficsignal` | No changes |
+| Quarter | `quarter` | `street_name` used as PK instead of composite key |
+| Population | `population` | No surrogate key (natural composite key) |
+| Sex | `sex` | Lookup table extracted from Population |
+| Origin | `origin` | Lookup table extracted from Population |
+
+**Key design decisions:**
+- Surrogate keys added to fact tables for efficient row identification
+- Lookup tables normalized from repeated categorical values
+- Some FK constraints not enforced for ETL performance (documented in code)
+```
+
+---
+
+### Critical Issue 5: Missing Fictitious User Scenario Walkthrough
+
+**The Problem**
+
+The requirement explicitly states:
+> "Demonstrate in a practical way how the visualization and the original use case are related: **Use a user to demonstrate** how the visualization improves a specific decision with data."
+> "The decision rule is **applied to a (fictitious) user** based on the key figure in order to positively influence a decision in the use case."
+
+Your report has generic "client recommendations" but no concrete user scenario showing step-by-step how someone would use the dashboard to make a decision.
+
+**The Solution** (20 minutes):
+
+Add a concrete scenario in Section 11 (Visualization):
+
+```markdown
+### Decision Scenario: Budget Allocation for District 2
+
+To demonstrate practical decision support, consider the following scenario:
+
+**User:** Maria Keller, Urban Planning Analyst at Stadt Zürich
+**Task:** Allocate CHF 5M infrastructure budget across districts
+
+**Step 1: Identify Problem Areas**
+Maria opens the Metabase dashboard and views the Stress Index Classification 
+(Figure X). She immediately sees District 2 (Enge) flagged as "Commuter Pressure" 
+with a Stress Index of +150.2%.
+
+[Screenshot: Dashboard showing District 2 highlighted]
+
+**Step 2: Apply Decision Rule**
+Based on the predefined decision rule:
+- Stress Index > +10% → High commuter pressure → Invest in inbound capacity
+
+**Step 3: Drill Down**
+Maria filters KPI 2 (Bottlenecks) to District 2 and identifies Brunaustrasse 
+as a peak-hour bottleneck (avg. 892 vehicles/hour at 17:00).
+
+[Screenshot: Filtered bottleneck view]
+
+**Step 4: Decision**
+Maria recommends:
+- Short-term: Signal optimization at Brunaustrasse intersection (CHF 200K)
+- Long-term: Park-and-ride facility at district boundary (CHF 2M)
+
+This data-driven approach replaced subjective prioritization with quantifiable 
+metrics, improving budget allocation efficiency.
+```
+
+This satisfies the requirement for a fictitious user demonstration with specific dashboard interactions.
+
+---
+
 ## ⚠️ Medium Priority Issues
 
 ### Issue 1: No Metabase Configuration Screenshot
@@ -256,7 +434,101 @@ credentials to ensure dashboard stability.
 
 ---
 
-### Issue 2: Before/After Optimization Comparison Could Be Stronger
+### Issue 2: Conceptual-to-Physical Model Mapping Not Explicit
+
+**Problem**: The requirement states:
+> "Also show the relationship between the conceptual model and the database schema."
+
+You have both an ERD (conceptual) and DDL (physical), but you don't explicitly show how they map to each other or explain any differences.
+
+**Fix** (15 minutes):
+
+Add a subsection in Chapter 4 after the ERD:
+
+```markdown
+### Mapping from Conceptual Model to Physical Schema
+
+The following table shows how each conceptual entity maps to its physical 
+implementation in MySQL:
+
+| Conceptual Entity | Physical Table | Key Differences |
+|-------------------|----------------|-----------------|
+| CountingSite | countingsite | `axis` column dropped due to inconsistent values |
+| MeasurementSite | measurementsite | No changes |
+| TrafficMeasurement | trafficmeasurement | Added surrogate key `traffic_measurement_id` |
+| Quarter | quarter | `street_name` used as natural primary key |
+| Population | population | No surrogate key; composite natural key |
+| Sex | sex | Lookup table extracted from population |
+| Origin | origin | Lookup table extracted from population |
+| TrafficSignal | trafficsignal | No changes |
+
+The physical schema closely follows the conceptual model, with minor adjustments 
+for performance (surrogate keys) and data quality (dropped columns).
+```
+
+---
+
+### Issue 3: SQL Keywords Not Explicitly Listed
+
+**Problem**: The requirement states queries should contain "at least 8 different keywords." Your queries clearly have 8+, but you don't explicitly list which keywords you use.
+
+**Fix** (5 minutes):
+
+Add to Section 7 (Database Analysis) after showing a KPI query:
+
+```markdown
+### SQL Keyword Coverage
+
+The KPI queries demonstrate comprehensive SQL usage with the following keywords:
+
+1. SELECT - attribute selection
+2. FROM - table specification  
+3. JOIN - table relationships (INNER, LEFT)
+4. WHERE - row filtering
+5. GROUP BY - aggregation grouping
+6. ORDER BY - result ordering
+7. AVG, SUM, COUNT - aggregate functions
+8. CASE WHEN - conditional logic
+9. WITH (CTE) - common table expressions
+10. OVER, PARTITION BY - window functions
+11. ROW_NUMBER, NTILE - ranking functions
+12. ROUND, CAST - type conversion
+
+This exceeds the minimum requirement of 8 keywords and demonstrates 
+advanced SQL capabilities including window functions and CTEs.
+```
+
+---
+
+### Issue 4: 3+ Optimization Approaches Not Clearly Listed
+
+**Problem**: The requirement asks for "3+ database approaches" for optimization. You use 3+ approaches but don't list them explicitly.
+
+**Fix** (5 minutes):
+
+Add to the beginning of Section 8 (Optimization):
+
+```markdown
+## Optimization Strategy
+
+Three complementary optimization approaches were applied:
+
+1. **Targeted Indexing** - Created composite and single-column indexes on 
+   high-cardinality filter columns (timestamp, measurement_site_id)
+   
+2. **SARGable Query Rewrites** - Replaced non-indexable predicates like 
+   `YEAR(timestamp)` with range conditions `timestamp >= '2023-01-01'`
+   
+3. **Materialized Aggregation Tables** - Pre-computed expensive aggregations 
+   into dedicated tables to avoid repeated full-table scans
+
+These three approaches reduced query execution time from several minutes 
+to under 5 seconds.
+```
+
+---
+
+### Issue 5: Before/After Optimization Comparison Could Be Stronger
 
 **Problem**: You mention "minutes to seconds" but the Visual EXPLAIN screenshot only shows the "after" state. The requirements ask to "Analyze execution plans **before and after** optimization."
 
@@ -454,11 +726,11 @@ This shows critical thinking and preempts evaluator questions.
 
 ### Suggestion 3: Reference the OECD Data Value Cycle More
 
-**Problem**: You mention the OECD Data Value Cycle in Chapter 2 with a nice diagram, but don't explicitly map your project to it.
+**Problem**: The project assignment emphasizes the "OECD (2015) Data Value Cycle" as a key framework. You have a figure showing data landscape but don't explicitly mention or cite the Data Value Cycle in your text.
 
 **Fix**: Add a paragraph showing how your project follows the cycle:
 ```markdown
-Our project follows the OECD Data Value Cycle:
+Our project follows the OECD Data Value Cycle (OECD, 2015):
 - **Data Collection**: Traffic counts, population records, geographic data
 - **Big Data**: 21M+ records requiring scalable database design
 - **Analytics**: SQL aggregations, KPI calculations, stress indices
@@ -467,23 +739,63 @@ Our project follows the OECD Data Value Cycle:
 - **Value Added**: Improved urban planning efficiency for Zurich
 ```
 
+Also add a simple reference at the end of your report:
+```markdown
+## References
+
+OECD (2015). Data-Driven Innovation: Big Data for Growth and Well-Being. 
+OECD Publishing, Paris.
+```
+
+---
+
+### Suggestion 4: Add a References Section
+
+**Problem**: The requirement mentions "valid source references" as part of formal criteria. Your report doesn't have a References/Bibliography section.
+
+**Fix** (10 minutes):
+
+Add before the Appendices:
+```markdown
+# References
+
+City of Zurich Open Data Portal. Traffic counting data (MIV Verkehrszählung). 
+https://data.stadt-zuerich.ch/dataset/sid_dav_verkehrszaehlung_miv_od2031
+
+City of Zurich Open Data Portal. Population statistics. 
+https://data.stadt-zuerich.ch/dataset/bev_monat_bestand_quartier_geschl_ag_herkunft_od3250
+
+OECD (2015). Data-Driven Innovation: Big Data for Growth and Well-Being. 
+OECD Publishing, Paris.
+
+MySQL Documentation. LOAD DATA Statement. 
+https://dev.mysql.com/doc/refman/8.0/en/load-data.html
+
+Metabase Documentation. https://www.metabase.com/docs/latest/
+```
+
 ---
 
 ## 📋 Final Checklist Before Submission
 
 1. [ ] **Add NoSQL implementation** (CRITICAL - see detailed steps above)
 2. [ ] **Add parameterized queries/filters in Metabase** (CRITICAL - show interactivity)
-3. [ ] **Add raw data examples** (show 2-3 sample rows per dataset)
-4. [ ] **Add data source URLs** (exact links to opendata.ch datasets)
-5. [ ] **Add Metabase configuration screenshot**
-6. [ ] **Add before/after execution plan comparison**
-7. [ ] **Add specific timing numbers for optimization**
-8. [ ] **Fix typos**: infraestructure, cpaacity, Direcional
-9. [ ] **Check page count** (max 40 pages excluding title, TOC, appendix)
-10. [ ] **Verify all screenshots are included** and referenced
-11. [ ] **Spell-check the entire document**
-12. [ ] **Verify ILIAS credentials submission** is complete
-13. [ ] **Test PDF renders correctly** (no broken images, correct formatting)
+3. [ ] **Add fictitious user scenario walkthrough** (CRITICAL - step-by-step decision demo)
+4. [ ] **Add raw data examples** (show 2-3 sample rows per dataset)
+5. [ ] **Add data source URLs** (exact links to opendata.ch datasets)
+6. [ ] **Add References section** (OECD, data sources, tools)
+7. [ ] **Add conceptual-to-physical model mapping table**
+8. [ ] **Add explicit SQL keyword list** (show 8+ keywords used)
+9. [ ] **Add explicit optimization approaches list** (show 3+ approaches)
+10. [ ] **Add Metabase configuration screenshot**
+11. [ ] **Add before/after execution plan comparison**
+12. [ ] **Add specific timing numbers for optimization**
+13. [ ] **Fix typos**: infraestructure, cpaacity, Direcional
+14. [ ] **Check page count** (max 40 pages excluding title, TOC, appendix)
+15. [ ] **Verify all screenshots are included** and referenced
+16. [ ] **Spell-check the entire document**
+17. [ ] **Verify ILIAS credentials submission** is complete
+18. [ ] **Test PDF renders correctly** (no broken images, correct formatting)
 
 ---
 
@@ -495,7 +807,11 @@ Our project follows the OECD Data Value Cycle:
 | 🚨 Critical | Parameterized queries in Metabase missing | 30-60 minutes |
 | 🚨 Critical | Raw data examples missing | 15 minutes |
 | 🚨 Critical | Data source URLs missing | 10 minutes |
+| 🚨 Critical | Fictitious user scenario walkthrough missing | 20 minutes |
 | ⚠️ Medium | Metabase config screenshot | 5 minutes |
+| ⚠️ Medium | Conceptual-to-physical model mapping | 15 minutes |
+| ⚠️ Medium | SQL keywords not explicitly listed | 5 minutes |
+| ⚠️ Medium | 3+ optimization approaches not clearly listed | 5 minutes |
 | ⚠️ Medium | Before/after EXPLAIN comparison | 15-30 minutes |
 | ⚠️ Medium | Specific timing numbers | 10 minutes |
 | 📝 Low | Typos and grammar | 15 minutes |
@@ -503,7 +819,7 @@ Our project follows the OECD Data Value Cycle:
 | 🎯 Quick Win | GitHub link visibility | 2 minutes |
 | 🎯 Quick Win | Figure cross-references | 10 minutes |
 
-**Total estimated time for all improvements**: 4-6 hours (mostly NoSQL + parameterized queries)
+**Total estimated time for all improvements**: 5-7 hours (mostly NoSQL + parameterized queries)
 
 ---
 
@@ -514,14 +830,17 @@ Your report is **very strong** on:
 - SQL query complexity (CTEs, window functions, aggregations)
 - Performance optimization documentation
 - Business value and decision support
+- Comprehensive ETL scripts in appendices
 
 Your report is **missing or weak** on:
 1. **NoSQL implementation** - explicitly required, completely absent
 2. **Parameterized Metabase queries** - requirement says "with parameters"
-3. **Concrete data examples** - show actual rows, not just column descriptions
-4. **Data source citations** - need exact URLs, not just "opendata.ch"
+3. **Fictitious user scenario** - need step-by-step walkthrough of dashboard usage
+4. **Concrete data examples** - show actual rows, not just column descriptions
+5. **Data source citations** - need exact URLs, not just "opendata.ch"
+6. **Explicit requirement mapping** - keywords, optimization approaches, model mapping
 
-Fixing these four items would significantly strengthen your submission.
+Fixing these items would significantly strengthen your submission.
 
 ---
 
