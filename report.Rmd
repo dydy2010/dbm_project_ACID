@@ -42,7 +42,7 @@ We intend to analze the population & traffic data over the years of Zurich, and 
 Our presentation slide helps to better introduce our datasets.
 
 ```{r data_landscape, echo=FALSE, out.width="90%", fig.cap="Data Landscape Overview", fig.pos="H", fig.align="center"}
-knitr::include_graphics("materials_for_report_later/data_landscape_insert_report.png")
+knitr::include_graphics("materials_for_report_later/screenshots/data_landscape_insert_report.png")
 ```
 
 ## System Architecture Overview
@@ -1014,33 +1014,53 @@ The final layer of the project is the delivery of actionable insights through an
 
 The dashboard is designed to visualize the core questions & insights defined in our KPI framework. It is divided into three visual topics:
 
-### 1. Citywide Overview (KPI 0)
+### Citywide Overview (KPI 0)
 This dual-axis chart compares the total population growth with the average traffic intensity across Zurich from 2012 to 2025.
 
-![Citywide Overview Dashboard](materials_for_report_later/PopulationVSTrafficGrowth.png)
+```{r population-traffic-growth, fig.cap="Population vs Traffic Growth", fig.align='center', out.width='80%', fig.pos='H'}
+knitr::include_graphics("materials_for_report_later/PopulationVSTrafficGrowth.jpeg")
+```
 
 **Key Insight:** While the population has grown steadily by over 14%, traffic intensity dropped significantly in 2020 and has remained below pre-pandemic levels, suggesting a shift in mobility behavior.<br>
 
-### 2. District Pressure Map (KPI 1)<br>
-- **Visual:** A table grouping districts by their "Stress Index" classification (Commuter Pressure vs. Residential Pressure vs Insufficient data).<br>
+### District Pressure Map (KPI 1)<br>
+This table groups districts by their "Stress Index" classification (Commuter Pressure vs. Residential Pressure vs Insufficient data).<br>
+
+```{r stress-index-classification, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
+knitr::include_graphics("materials_for_report_later/StressIndexClassificationPressureZones.png")
+```
+
+- **Key Insight:** Identifies specific districts that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infraestructure measures.<br>
+
+- **Decision Recommendation for Client:**  Direct investments toward _commuter-pressure_ zones requiring road capacity expansion and traffic management. In _residential-pressure_ districts, improve public transit and other mobility options such as improved cycle-friendly roads to sustain traffic despite demographic growth.<br>
 
 
+### Operational Bottlenecks (KPI 2 & 3)<br>
 
-- **Insight:** Identifies specific districts that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infraestructure measures.<br>
-- **Decision Recommendation for Client:** Targeted infrastructure investment improving roads in "Commuter" zones. Focus on living comfort design in "Residential" growth zones.<br>
+#### KPI 2: Peak-Hour Bottlenecks<br>
 
-
-### 3. Operational Bottlenecks (KPI 2 & 3)<br>
 - **Visual:** A list of "Red Flag" intersections where the peak-hour volume consistently exceeds 700 vehicles/hour.<br>
 
-![Citywide Overview Dashboard](materials_for_report_later/Top10BottlenecksAndPeakHours.png)
+```{r Bottleneck-peak-hours, fig.cap="Top 10 Bottlenecks and Peak Hours", fig.align='center', out.width='80%', fig.pos='H'}
+knitr::include_graphics("materials_for_report_later/Top10BottlenecksAndPeakHours.png")
+```
+- **Key Insight**: Ten intersections consistently exceed operational capacity during peak hours, with afternoon rush (16:00-17:00) representing the primary constraint period. These bottlenecks create systematic delays and potentially degrade network performance across surrounding areas.
+
+- **Decision Recommendation for Client**: Apply short-term interventions (signal optimization, traffic management) at flagged intersections immediately. to reduce peak concentration, consider expanding cpaacity of bus lanes or an adaptive traffic signal system.<br>
+
+#### KPI 3: Direcional Imbalances<br>
 
 - **Visual:** A breakdown of directional imbalance for major intersections.<br>
 
-![Citywide Overview Dashboard](materials_for_report_later/KP3DirectionClassificationStrongCorridorDependency.png)
+```{r Directional-Imbalance, fig.cap="Directional Imbalance for Major Intersections", fig.align='center', out.width='100%', fig.pos='H'}
+knitr::include_graphics("materials_for_report_later/KP3DirectionClassificationStrongCorridorDependency.png")
+```
+
+- **Key Insight:** Several intersections exhibit strong directional dominance (>60% flow in one direction), indicating potential for tidal flow management to optimize capacity during peak periods. Extreme cases like Nansenstrasse (>99.9% directional concentration) function as one-way commuter. <br>
+
 
 - **Decision Support:** The bottlenecks are the critical areas that the client should focus as painpoints for priority. And a directional imbalance is somewhere, the client could implement hourly traffic control measures(change lane numbers on one direction depending on time of the day).<br>
-[please insert the screenshot of the dashboard here, and adjust descriptions]
+
 
 
 # Conclusions & Lessons Learned
@@ -1095,7 +1115,12 @@ For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrass
 # Individual Team Member Reflections
 
  **Ramiro Díez-Liébana**
-- [to be added]<br>
+
+- **Real-World Data**: I learned that messy, especially sensor data demands flexible solutions beyond standard cleaning steps. Manual street name mappings and copmlex addresses taught me that automation has limits when dealing with inconsistent real-world datasets.
+
+- **Metabase  Data  Insights**: I liked that Metabase's features, although open-source, work great translating our SQL queries into intuitive visualization tools for urban planners. You an create deep visuals, without need of prior experience. Loading power however was a bit limited, with bigger projects taking longer and being more cumbersome to work with.
+
+- **Concurrent Database Access**: I learned that MySQL's single-connection constraint created some limitations when several people worked on the database, requiring being extra careful to avoid being disconnected mid-query. Additionally, deletes reminded me that database relationships create some dependencies: removing  data could unexpectedly affect downstream tables.
 
  **Valeska Blank**
  
