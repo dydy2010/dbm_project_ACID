@@ -1108,8 +1108,15 @@ For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrass
 
 - **Early Integration of Visualization Tools:** Another note about teamwork, in my experience, it would be better to already have a Metabase or other data visual tool in place, while working on the project, instead of implementing it in the end. Then it will be easier to have the data results ready for inspection during the work.
 
-** Cyriel Van Helleputte**
- [to be added]
+**Cyriel Van Helleputte**
+
+- **Strong Initial Collaboration:** From the start, everyone contributed ideas and we worked together to decide on our project goal and datasets, reaching decisions quickly without friction.
+
+- **Constructive Criticism:** The best part was how constructively critical we were with each other early on, particularly when discussing the data schema—easily the most crucial aspect of a database management assignment.
+
+- **Creative Problem-Solving with Data Granularity:** We had 2 datasets, however one had a different granularity, based on streets in Zurich while the other we wanted to include had district level data. To tackle this challenge we had the somewhat creative solution of downloading another map of Zurich with its geographical data to connect both datasets using this 3rd dataset as a workaround.
+
+- **Efficient Process:** That willingness to challenge each other's thinking while staying collaborative made for an efficient and productive process overall.
 
 # Generative AI Declaration & Guidelines
 
