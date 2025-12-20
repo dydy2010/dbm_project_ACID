@@ -1028,12 +1028,12 @@ This table groups districts by their "Stress Index" classification (Commuter Pre
 
 
 ```{r stress-index-classification, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
-knitr::include_graphics("materials_for_report_later/FinalScreenShots/DependencyClassification.jpeg")
+knitr::include_graphics("materials_for_report_later/FinalScreenShots/StressIndexClassification.jpeg")
 ```
-```{r stress-index-classification, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
+```{r ZurichAverageVolumeDistrictMap, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
 knitr::include_graphics("materials_for_report_later/FinalScreenShots/ZurichAverageVolumeDistrictMap.jpeg")
 ```
-```{r stress-index-classification, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
+```{r ZurichNumberOfDistrictsMap, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
 knitr::include_graphics("materials_for_report_later/FinalScreenShots/ZurichNumberOfDistrictsMap.jpeg")
 ```
 
