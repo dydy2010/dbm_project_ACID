@@ -284,7 +284,17 @@ Interpretation: positive values highlight commuter hubs; negative values show re
 - Stress Index < -10% : High residential pressure
 - -10% <= Stress Index <= +10% : Balanced
 
+**Interpretation & Recommended Actions Hypothesis:**
+
+| Priority | Stress Index Range | Recommended Action |
+|----------|-------------------|-------------------|
+| **High** | < -15% (residential pressure) | Expand public transit, add lanes, optimize signals |
+| **High** | > +15% (commuter pressure)    | Improve inbound capacity, PR facilities  |
+| **Medium** | -15% to -10% or +10% to +15% | Monitor trends, reassess in two years               |
+| **Low** | -10% to +10% (balanced)        | Keep current infrastructure                     |
+
 Sample output:
+
 
 | District | Pop Growth % | Traffic Growth % | Stress Index | Classification |
 |----------|--------------|------------------|--------------|----------------|
@@ -336,37 +346,6 @@ The dominance share expresses how much of the total site traffic flows into that
 | < 0.50          | Balanced multi-directional intersection         |
 
 
-## KPI 4: Dashboard & Visualization Plan
-
-- **Visual 1: District Stress Index Map** – Heatmap based on KPI 1 results.
-- **Visual 2: Peak-Hour Heatmap** – Time-of-day heatmap per counting site using KPI 2 outputs.
-- **Visual 3: Growth Trend Comparison** – Grouped bar chart/scatterplot (population vs. traffic growth per district).
-- **Additional Visuals** – e.g., Any additional visualizations that the team discovers while doing the analysis.
-
-## KPI 5: Provide Actionable Insights for Planning Decisions
-
-**Purpose.** Convert KPI outputs into budget and intervention guidance for the Urban Planning Office.
-
-**KPI 5.1 – District Priorities.**
-
-| Priority | Stress Index Range | Recommended Action |
-|----------|-------------------|-------------------|
-| **High** | < -15% (residential pressure) | Expand public transit, add lanes, optimize signals |
-| **High** | > +15% (commuter pressure)    | Improve inbound capacity, park-and-ride facilities  |
-| **Medium** | -15% to -10% or +10% to +15% | Monitor trends, reassess in two years               |
-| **Low** | -10% to +10% (balanced)        | Maintain current infrastructure                     |
-
-**KPI 5.2 – Site(street)-Level Interventions.**
-
-- Top five bottleneck streets : immediate signal-timing optimization or capacity studies.
-- Streets with directional imbalance > 1.5 : directional lane adjustments or reversible lanes.
-
-**KPI 5.3 – Budget Allocation Guide.**
-
-1. Short-term (1–2 years): immediate action on the top ten bottleneck intersections flagged in KPI 2.
-2. Long-term (3–5 years): invest in infrastructure with persistent stress index extremes.
-
-Together, these five KPIs provide a structured, predefined guideline for our project and analysis.
 
 # Loading & Transforming the Data
 
