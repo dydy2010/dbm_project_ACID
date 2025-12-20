@@ -1030,10 +1030,10 @@ This table groups districts by their "Stress Index" classification (Commuter Pre
 ```{r stress-index-classification, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
 knitr::include_graphics("materials_for_report_later/FinalScreenShots/StressIndexClassification.jpeg")
 ```
-```{r ZurichAverageVolumeDistrictMap, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
+```{r ZurichAverageVolumeDistrictMap, fig.cap="Average Volume per District", fig.align='center', out.width='80%', fig.pos='H'}
 knitr::include_graphics("materials_for_report_later/FinalScreenShots/ZurichAverageVolumeDistrictMap.jpeg")
 ```
-```{r ZurichNumberOfDistrictsMap, fig.cap="Stress Index Classification", fig.align='center', out.width='80%', fig.pos='H'}
+```{r ZurichNumberOfDistrictsMap, fig.cap="Number of Bottlenecks per District", fig.align='center', out.width='80%', fig.pos='H'}
 knitr::include_graphics("materials_for_report_later/FinalScreenShots/ZurichNumberOfDistrictsMap.jpeg")
 ```
 
