@@ -1073,7 +1073,7 @@ We connected Metabase to the MongoDB instance and recreated the exact same "Bott
 
 The following visualizations demonstrate that the results are identical. The spatial distribution of bottlenecks and their classification status remained preserved 100% during the migration to NoSQL.
 
-```{r nosql_comparison, echo=FALSE, fig.cap="Comparison of SQL (red) and NoSQL (blue) visualizations. The identical spatial patterns confirm successful data migration and query integrity.", out.width="100%", fig.show='hold', fig.align='center', fig.pos="H"}
+```{r nosql_comparison, echo=FALSE, fig.cap="Comparison of SQL (red) and NoSQL (blue) visualizations. The identical spatial patterns confirm successful data migration and query integrity.", out.width="85%", fig.show='hold', fig.align='center', fig.pos="H"}
 knitr::include_graphics(c("materials_for_report_later/FinalScreenShots/ZurichAverageVolumeDistrictMap.jpeg", "materials_for_report_later/FinalScreenShots/bottlenecks_analytics_nosql_map.png"))
 ```
 
