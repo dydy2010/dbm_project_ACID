@@ -1009,7 +1009,7 @@ knitr::include_graphics("materials_for_report_later/FinalScreenShots/PopulationV
 **Key Insight:** While the population has grown steadily by over 14%, traffic intensity dropped significantly in 2020 and has remained below pre-pandemic levels, suggesting a shift in mobility behavior.<br>
 
 ### Quarter Pressure Map (KPI 1)<br>
-This table groups quarters by their "Stress Index" classification (Commuter Pressure vs. Residential Pressure vs Insufficient data).<br>
+This table groups quarters by their "Stress Index" classification (Commuter Pressure, Residential Pressure, Insufficient data and Balanced).<br>
 
 
 ```{r stress-index-classification, fig.cap="Zurich Average Volume Quarter Map", fig.align='center', out.width='80%', fig.pos='H'}
