@@ -35,7 +35,7 @@ To contribute to this goal, this project focuses on producing meaningful insight
 # Project Idea & Use Case
 
 We found our data on opendata.ch and our main idea is to derive insights for our hypothetical client- the Urban Planning Department of the City of Zurich. 
-We intend to analze the population & traffic data over the years of Zurich, and try to find where the urban planning could be improved, including traffic usecases and urban living usecases.
+We intend to analyze the population & traffic data over the years of Zurich, and try to find where the urban planning could be improved, including traffic usecases and urban living usecases.
 
 ## The Datasets
 
@@ -1022,7 +1022,7 @@ knitr::include_graphics("materials_for_report_later/FinalScreenShots/ZurichAvera
 knitr::include_graphics("materials_for_report_later/FinalScreenShots/ZurichNumberOfDistrictsMap.jpeg")
 ```
 
-- **Key Insight:** Identifies specific quarters that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infraestructure measures.<br>
+- **Key Insight:** Identifies specific quarters that may face high commuter inflows (Traffic Growth > Population Growth) and let our client know, which area they should focus on implementing urban design and infrastructure measures.<br>
 
 - **Decision Recommendation for Client:**  Direct investments toward _commuter-pressure_ zones requiring road capacity expansion and traffic management. In _residential-pressure_ quarters, improve public transit and other mobility options such as improved cycle-friendly roads to sustain traffic despite demographic growth.<br>
 
@@ -1038,7 +1038,7 @@ knitr::include_graphics("materials_for_report_later/FinalScreenShots/Top10Bottle
 ```
 - **Key Insight**: Ten intersections consistently exceed operational capacity during peak hours, with afternoon rush (16:00-17:00) representing the primary constraint period. These bottlenecks create systematic delays and potentially degrade network performance across surrounding areas.
 
-- **Decision Recommendation for Client**: Apply short-term interventions (signal optimization, traffic management) at flagged intersections immediately. to reduce peak concentration, consider expanding cpaacity of bus lanes or an adaptive traffic signal system.<br>
+- **Decision Recommendation for Client**: Apply short-term interventions (signal optimization, traffic management) at flagged intersections immediately. to reduce peak concentration, consider expanding capacity of bus lanes or an adaptive traffic signal system.<br>
 
 #### KPI 3: Direcional Imbalances<br>
 
@@ -1114,7 +1114,7 @@ In contrast, quarters like **Escher Wyss (District 5, -134% Stress)** and **Alts
 **3. Smarter Capacity Management (KPI 3):** 
 
 Finally, we identified "hidden capacity" in our directional analysis. Some streets show inefficient bi-directional traffic flow.  
-For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrasse (71% dominance toward Heimplatz)** are prime candidates for **dynamic tidal flow systems**. Implementing reversible lanes here could unlock peak-hour capacity without the cost and disruption of infraestructure constructions.
+For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrasse (71% dominance toward Heimplatz)** are prime candidates for **dynamic tidal flow systems**. Implementing reversible lanes here could unlock peak-hour capacity without the cost and disruption of infrastructure constructions.
 
 ## Lessons Learned
 - **Database Design and Data Quality:**  
@@ -1136,7 +1136,7 @@ For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrass
 
  **Ramiro Díez-Liébana**
 
-- **Real-World Data**: I learned that messy, especially sensor data demands flexible solutions beyond standard cleaning steps. Manual street name mappings and copmlex addresses taught me that automation has limits when dealing with inconsistent real-world datasets.
+- **Real-World Data**: I learned that messy, especially sensor data demands flexible solutions beyond standard cleaning steps. Manual street name mappings and complex addresses taught me that automation has limits when dealing with inconsistent real-world datasets.
 
 - **Metabase  Data  Insights**: I liked that Metabase's features, although open-source, work great translating our SQL queries into intuitive visualization tools for urban planners. You an create deep visuals, without need of prior experience. Loading power however was a bit limited, with bigger projects taking longer and being more cumbersome to work with.
 
@@ -1160,7 +1160,7 @@ For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrass
 
 - **Efficiency and Performance Awareness:** A very important lesson I learned is that we should always consider the efficiency while writing SQL queries and designing the database. Otherwise, it wouldn't be possible to have meaningful use cases, especially for the frontend visualizations.
 
-- **Challenges of Team Collaboration in Database Projects:** One aspect that I would still need to discover in future project is how to collaborate with team when we do a database project like this. Since queries and database desgins are not easy to communicate with team, we used git for collaboration, to keep the scripts and concepts in files there. It is still not easy to find bugs or improve it based on teammates work, comparing to code review in programming which I am used to. Therefore, I am still not sure how it is done in practice. Or are queries more for one time usage than for team members? This is the question that I will keep in mind for future projects.
+- **Challenges of Team Collaboration in Database Projects:** One aspect that I would still need to discover in future project is how to collaborate with team when we do a database project like this. Since queries and database designs are not easy to communicate with team, we used git for collaboration, to keep the scripts and concepts in files there. It is still not easy to find bugs or improve it based on teammates work, comparing to code review in programming which I am used to. Therefore, I am still not sure how it is done in practice. Or are queries more for one time usage than for team members? This is the question that I will keep in mind for future projects.
 
 - **Early Integration of Visualization Tools:** Another note about teamwork, in my experience, it would be better to already have a Metabase or other data visual tool in place, while working on the project, instead of implementing it in the end. Then it will be easier to have the data results ready for inspection during the work.
 
