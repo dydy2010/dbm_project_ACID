@@ -16,97 +16,8 @@ The project assignment explicitly requires NoSQL implementation in Section 6:
 
 Your report has **zero NoSQL content**. This is probably the biggest point deduction risk.
 
-### The Solution: MongoDB (Easiest Option)
+### The Solution: MongoDB (Easiest Option)done
 
-Since you have CSVs and limited NoSQL experience, MongoDB is your best choice because:
-1. You can directly import CSVs with one command
-2. Query syntax is relatively intuitive
-3. Metabase has built-in MongoDB support
-
-### Step-by-Step MongoDB Implementation
-
-#### Step 1: Install MongoDB on your VM
-```bash
-# On your Windows VM, download MongoDB Community Server
-# Or use MongoDB Atlas (free cloud tier) - even easier
-```
-
-#### Step 2: Import your CSVs into MongoDB
-```bash
-# Import traffic data
-mongoimport --db traffic_population_zh --collection traffic_measurements --type csv --headerline --file traffic_data_cleaned_final.csv
-
-# Import population data  
-mongoimport --db traffic_population_zh --collection population --type csv --headerline --file population_data_cleaned_final.csv
-
-# Import quarter data
-mongoimport --db traffic_population_zh --collection quarters --type csv --headerline --file quarter_data_cleaned_final.csv
-```
-
-#### Step 3: Write equivalent queries for ONE KPI (minimum)
-You don't need all KPIs in NoSQL - just demonstrate equivalence for at least one.
-
-**Example: KPI 0 - City-level yearly traffic average**
-
-SQL version (you have this):
-```sql
-SELECT YEAR(timestamp) AS year, AVG(vehicle_count) AS avg_count
-FROM trafficmeasurement
-GROUP BY YEAR(timestamp);
-```
-
-MongoDB equivalent:
-```javascript
-db.traffic_measurements.aggregate([
-  {
-    $group: {
-      _id: { $year: "$timestamp" },
-      avg_count: { $avg: "$vehicle_count" }
-    }
-  },
-  { $sort: { "_id": 1 } }
-])
-```
-
-#### Step 4: Connect Metabase to MongoDB
-1. In Metabase Admin → Databases → Add Database
-2. Select "MongoDB"
-3. Enter connection details (host, port, database name)
-4. Save and sync
-
-#### Step 5: Create ONE visualization in Metabase from MongoDB
-- Create a "Question" using the MongoDB data source
-- Show the same KPI 0 chart
-- Screenshot it
-
-#### Step 6: Add to Report
-Add a new section (maybe "6.2 NoSQL Implementation" or similar):
-
-```markdown
-## NoSQL Implementation with MongoDB
-
-To demonstrate database technology flexibility, we implemented an equivalent 
-analysis pipeline using MongoDB as a document-oriented NoSQL database.
-
-### Data Loading
-The cleaned CSV files were imported into MongoDB using mongoimport...
-
-### Equivalent Query: KPI 0 Citywide Traffic Trend
-[Show the MongoDB aggregation query]
-
-### Metabase Connection
-[Screenshot of MongoDB connection in Metabase]
-
-### Visualization Comparison
-[Side-by-side screenshots showing SQL and MongoDB produce the same results]
-
-The outputs are identical, confirming that our analytical logic is 
-database-agnostic and could be deployed on either SQL or NoSQL infrastructure.
-```
-
-**Time estimate**: 2-4 hours if MongoDB is new to you, 1-2 hours if you've seen it before.
-
----
 
 ### Critical Issue 2: Missing Parameterized Queries in Metabase
 
@@ -161,73 +72,117 @@ Figure X shows the stress index filtered to District 5 (Industriequartier).
 This interactivity allows urban planners to drill down into specific areas 
 without requiring SQL knowledge.
 ```
+### Issue 5: Before/After Optimization Comparison Could Be Stronger
+
+**Problem**: You mention "minutes to seconds" but the Visual EXPLAIN screenshot only shows the "after" state. The requirements ask to "Analyze execution plans **before and after** optimization."
+
+**Fix** (15-30 minutes):
+1. Temporarily remove one of your indexes:
+   ```sql
+   DROP INDEX idx_tm_timestamp ON TrafficMeasurement;
+   ```
+2. Run EXPLAIN on a KPI query and screenshot it (showing full table scan)
+3. Recreate the index
+4. You already have the "after" screenshot
+
+Add to Section 8.2:
+```markdown
+### Before Optimization
+[Screenshot showing type=ALL, full table scan]
+
+The execution plan before optimization shows a full table scan (type=ALL) 
+across 21 million rows, resulting in execution times of X minutes.
+
+### After Optimization  
+[Your existing screenshot]
+
+After adding targeted indexes, the execution plan shows indexed access 
+(type=range/ref), reducing execution time to X seconds.
+```
 
 ---
 
-### Critical Issue 3: Missing Raw Data Examples
+### Issue 3: Execution Time Numbers Are Vague
+
+**Problem**: You say "minutes to seconds" but don't give specific numbers. Concrete measurements are more convincing.
+
+**Fix** (10 minutes):
+Run your heaviest query with timing:
+```sql
+SET profiling = 1;
+SELECT * FROM v_kpi2_bottlenecks;
+SHOW PROFILES;
+```
+
+Or simply note the "Duration" shown in MySQL Workbench.
+
+Update the text to say something like:
+> "Query execution time improved from **4 minutes 23 seconds** to **3.2 seconds** after optimization."
+
+---
+
+## 📝 Writing & Formatting Improvements
+
+### Issue 4: Some Typos and Grammar Issues
+
+**Location**: Throughout, but especially in Section 11
+
+**Examples found**:
+- "infraestructure" → "infrastructure" (Section 11, KPI 2 decision recommendation)
+- "cpaacity" → "capacity" (same location)
+- "Direcional" → "Directional" (Section 11, KPI 3 header)
+- "assisting material" → "supporting material" (Chapter 14)
+
+**Fix**: Do a spell-check pass on the final PDF, or run the text through a grammar checker.
+
+---
+
+### Issue 5: Inconsistent Capitalization
+
+**Problem**: Sometimes "Metabase" sometimes "metabase", sometimes "MySQL" sometimes "mysql"
+
+**Fix**: Search and replace to ensure consistent capitalization:
+- MySQL (always capitalized)
+- Metabase (always capitalized)  
+- SQL (always uppercase)
+- NoSQL (capital N, capital SQL)
+
+---
+---
+### Critical Issue 7: Missing Conceptual-to-Physical Schema Mapping
 
 **The Problem**
 
 The requirement states:
-> "Analyze the structure and content of the source data **using data examples**"
+> "Also show the **relationship between the conceptual model and the database schema**"
 
-You describe column names and types well, but you don't show actual sample rows from the raw data. A professor wants to see: "Here's what 3 rows of the original CSV look like."
+You have an ERD (Figure 2) and DDL code in appendices, but you don't explicitly show HOW the conceptual entities map to physical tables - especially where they differ.
 
 **The Solution** (15 minutes):
 
-Add a small sample data table in Chapter 3 after describing each dataset.
-
-**Example for Traffic Data** (add after line ~74):
+Add a mapping table in Section 4 after the ERD description:
 
 ```markdown
-### Sample Raw Data
+### Mapping: Conceptual Model to Physical Schema
 
-The following excerpt shows three representative rows from the raw traffic CSV:
+The following table shows how conceptual entities from the ER diagram correspond 
+to physical database tables:
 
-| MSID | MSName | ZSID | ZSName | MessungDatZeit | AnzFahrzeuge | AnzFahrzeugeStatus |
-|------|--------|------|--------|----------------|--------------|-------------------|
-| M001 | Unknown | Z123 | Seestrasse | 2023-05-15T08:00:00 | 342 | Measured |
-| M001 | Unknown | Z123 | Seestrasse | 2023-05-15T09:00:00 | 456 | Measured |
-| M002 | Unknown | Z124 | Hardbrücke | 2023-05-15T08:00:00 | 891 | Measured |
+| Conceptual Entity | Physical Table | Key Differences |
+|-------------------|----------------|-----------------|
+| CountingSite | `countingsite` | `axis` column dropped due to inconsistent values |
+| MeasurementSite | `measurementsite` | No changes |
+| TrafficMeasurement | `trafficmeasurement` | Added surrogate key `traffic_measurement_id` |
+| TrafficSignal | `trafficsignal` | No changes |
+| Quarter | `quarter` | `street_name` used as PK instead of composite key |
+| Population | `population` | No surrogate key (natural composite key) |
+| Sex | `sex` | Lookup table extracted from Population |
+| Origin | `origin` | Lookup table extracted from Population |
 
-These raw records illustrate the hourly measurement granularity and the 
-relationship between measurement sites (MSID) and counting sites (ZSID).
-```
-
-Do the same for Population and Quarter datasets - just 2-3 sample rows each.
-
----
-
-### Critical Issue 4: Missing Data Source URLs
-
-**The Problem**
-
-You mention "opendata.ch" and "City of Zurich's open data portal" but don't provide the **exact URLs** to your datasets. The project assignment shows example URLs like `https://data.stadt-zuerich.ch/dataset/...` - you should cite these properly.
-
-**The Solution** (10 minutes):
-
-Add a "Data Sources" subsection in Chapter 3:
-
-```markdown
-## Data Sources
-
-The following open data sources were used in this project:
-
-1. **Traffic Count Data (MIV Verkehrszählung)**  
-   URL: https://data.stadt-zuerich.ch/dataset/sid_dav_verkehrszaehlung_miv_od2031  
-   Description: Hourly vehicle counts from automated counting sites since 2012
-
-2. **Population Data (Bevölkerungsbestand)**  
-   URL: https://data.stadt-zuerich.ch/dataset/bev_monat_bestand_quartier_geschl_ag_herkunft_od3250  
-   Description: Monthly population by district, quarter, sex, and origin
-
-3. **Quarter/Address Data**  
-   URL: [your actual URL]  
-   Description: Geographic mapping of addresses to statistical quarters
-
-These three datasets represent independent data collection processes maintained 
-by different departments of the City of Zurich, satisfying the requirement for 
-2+ independent but integrable data sources.
+**Key design decisions:**
+- Surrogate keys added to fact tables for efficient row identification
+- Lookup tables normalized from repeated categorical values
+- Some FK constraints not enforced for ETL performance (documented in code)
 ```
 
 ---
@@ -279,81 +234,6 @@ scenario:
 
 This scenario illustrates how the KPI framework transforms raw traffic data into 
 actionable budget decisions.
-```
-
----
-
-### Critical Issue 6: Missing Explicit SQL Keyword Count
-
-**The Problem**
-
-The requirement states:
-> "The SQL query should contain at least **8 different keywords**"
-
-Your queries clearly use many keywords (SELECT, FROM, JOIN, WHERE, GROUP BY, ORDER BY, CASE, WHEN, WITH, SUM, AVG, ROW_NUMBER, OVER, PARTITION BY, etc.) but you **never explicitly list or count them** to show you meet the requirement.
-
-**The Solution** (10 minutes):
-
-Add a brief note in Section 7 (Analyzing & Evaluating Data) after presenting a complex query:
-
-```markdown
-### SQL Complexity Analysis
-
-The KPI queries demonstrate appropriate complexity by utilizing the following 
-SQL keywords and constructs:
-
-1. **SELECT** - attribute selection
-2. **FROM** - table specification  
-3. **JOIN** - table combination (INNER JOIN, LEFT JOIN)
-4. **WHERE** - row filtering with SARGable predicates
-5. **GROUP BY** - aggregation grouping
-6. **ORDER BY** - result sorting
-7. **CASE/WHEN** - conditional logic for classification
-8. **WITH** (CTE) - common table expressions for readability
-9. **SUM/AVG** - aggregate functions
-10. **ROW_NUMBER() OVER (PARTITION BY...)** - window functions
-11. **ROUND/CAST** - type conversion and formatting
-
-This exceeds the minimum requirement of 8 different keywords and demonstrates 
-proficiency with advanced SQL constructs including CTEs and window functions.
-```
-
----
-
-### Critical Issue 7: Missing Conceptual-to-Physical Schema Mapping
-
-**The Problem**
-
-The requirement states:
-> "Also show the **relationship between the conceptual model and the database schema**"
-
-You have an ERD (Figure 2) and DDL code in appendices, but you don't explicitly show HOW the conceptual entities map to physical tables - especially where they differ.
-
-**The Solution** (15 minutes):
-
-Add a mapping table in Section 4 after the ERD description:
-
-```markdown
-### Mapping: Conceptual Model to Physical Schema
-
-The following table shows how conceptual entities from the ER diagram correspond 
-to physical database tables:
-
-| Conceptual Entity | Physical Table | Key Differences |
-|-------------------|----------------|-----------------|
-| CountingSite | `countingsite` | `axis` column dropped due to inconsistent values |
-| MeasurementSite | `measurementsite` | No changes |
-| TrafficMeasurement | `trafficmeasurement` | Added surrogate key `traffic_measurement_id` |
-| TrafficSignal | `trafficsignal` | No changes |
-| Quarter | `quarter` | `street_name` used as PK instead of composite key |
-| Population | `population` | No surrogate key (natural composite key) |
-| Sex | `sex` | Lookup table extracted from Population |
-| Origin | `origin` | Lookup table extracted from Population |
-
-**Key design decisions:**
-- Surrogate keys added to fact tables for efficient row identification
-- Lookup tables normalized from repeated categorical values
-- Some FK constraints not enforced for ETL performance (documented in code)
 ```
 
 ---
@@ -468,38 +348,42 @@ for performance (surrogate keys) and data quality (dropped columns).
 
 ---
 
-### Issue 3: SQL Keywords Not Explicitly Listed
+### Critical Issue 6: Missing Explicit SQL Keyword Count
 
-**Problem**: The requirement states queries should contain "at least 8 different keywords." Your queries clearly have 8+, but you don't explicitly list which keywords you use.
+**The Problem**
 
-**Fix** (5 minutes):
+The requirement states:
+> "The SQL query should contain at least **8 different keywords**"
 
-Add to Section 7 (Database Analysis) after showing a KPI query:
+Your queries clearly use many keywords (SELECT, FROM, JOIN, WHERE, GROUP BY, ORDER BY, CASE, WHEN, WITH, SUM, AVG, ROW_NUMBER, OVER, PARTITION BY, etc.) but you **never explicitly list or count them** to show you meet the requirement.
+
+**The Solution** (10 minutes):
+
+Add a brief note in Section 7 (Analyzing & Evaluating Data) after presenting a complex query:
 
 ```markdown
-### SQL Keyword Coverage
+### SQL Complexity Analysis
 
-The KPI queries demonstrate comprehensive SQL usage with the following keywords:
+The KPI queries demonstrate appropriate complexity by utilizing the following 
+SQL keywords and constructs:
 
-1. SELECT - attribute selection
-2. FROM - table specification  
-3. JOIN - table relationships (INNER, LEFT)
-4. WHERE - row filtering
-5. GROUP BY - aggregation grouping
-6. ORDER BY - result ordering
-7. AVG, SUM, COUNT - aggregate functions
-8. CASE WHEN - conditional logic
-9. WITH (CTE) - common table expressions
-10. OVER, PARTITION BY - window functions
-11. ROW_NUMBER, NTILE - ranking functions
-12. ROUND, CAST - type conversion
+1. **SELECT** - attribute selection
+2. **FROM** - table specification  
+3. **JOIN** - table combination (INNER JOIN, LEFT JOIN)
+4. **WHERE** - row filtering with SARGable predicates
+5. **GROUP BY** - aggregation grouping
+6. **ORDER BY** - result sorting
+7. **CASE/WHEN** - conditional logic for classification
+8. **WITH** (CTE) - common table expressions for readability
+9. **SUM/AVG** - aggregate functions
+10. **ROW_NUMBER() OVER (PARTITION BY...)** - window functions
+11. **ROUND/CAST** - type conversion and formatting
 
-This exceeds the minimum requirement of 8 keywords and demonstrates 
-advanced SQL capabilities including window functions and CTEs.
+This exceeds the minimum requirement of 8 different keywords and demonstrates 
+proficiency with advanced SQL constructs including CTEs and window functions.
 ```
 
 ---
-
 ### Issue 4: 3+ Optimization Approaches Not Clearly Listed
 
 **Problem**: The requirement asks for "3+ database approaches" for optimization. You use 3+ approaches but don't list them explicitly.
@@ -528,96 +412,6 @@ to under 5 seconds.
 
 ---
 
-### Issue 5: Before/After Optimization Comparison Could Be Stronger
-
-**Problem**: You mention "minutes to seconds" but the Visual EXPLAIN screenshot only shows the "after" state. The requirements ask to "Analyze execution plans **before and after** optimization."
-
-**Fix** (15-30 minutes):
-1. Temporarily remove one of your indexes:
-   ```sql
-   DROP INDEX idx_tm_timestamp ON TrafficMeasurement;
-   ```
-2. Run EXPLAIN on a KPI query and screenshot it (showing full table scan)
-3. Recreate the index
-4. You already have the "after" screenshot
-
-Add to Section 8.2:
-```markdown
-### Before Optimization
-[Screenshot showing type=ALL, full table scan]
-
-The execution plan before optimization shows a full table scan (type=ALL) 
-across 21 million rows, resulting in execution times of X minutes.
-
-### After Optimization  
-[Your existing screenshot]
-
-After adding targeted indexes, the execution plan shows indexed access 
-(type=range/ref), reducing execution time to X seconds.
-```
-
----
-
-### Issue 3: Execution Time Numbers Are Vague
-
-**Problem**: You say "minutes to seconds" but don't give specific numbers. Concrete measurements are more convincing.
-
-**Fix** (10 minutes):
-Run your heaviest query with timing:
-```sql
-SET profiling = 1;
-SELECT * FROM v_kpi2_bottlenecks;
-SHOW PROFILES;
-```
-
-Or simply note the "Duration" shown in MySQL Workbench.
-
-Update the text to say something like:
-> "Query execution time improved from **4 minutes 23 seconds** to **3.2 seconds** after optimization."
-
----
-
-## 📝 Writing & Formatting Improvements
-
-### Issue 4: Some Typos and Grammar Issues
-
-**Location**: Throughout, but especially in Section 11
-
-**Examples found**:
-- "infraestructure" → "infrastructure" (Section 11, KPI 2 decision recommendation)
-- "cpaacity" → "capacity" (same location)
-- "Direcional" → "Directional" (Section 11, KPI 3 header)
-- "assisting material" → "supporting material" (Chapter 14)
-
-**Fix**: Do a spell-check pass on the final PDF, or run the text through a grammar checker.
-
----
-
-### Issue 5: Inconsistent Capitalization
-
-**Problem**: Sometimes "Metabase" sometimes "metabase", sometimes "MySQL" sometimes "mysql"
-
-**Fix**: Search and replace to ensure consistent capitalization:
-- MySQL (always capitalized)
-- Metabase (always capitalized)  
-- SQL (always uppercase)
-- NoSQL (capital N, capital SQL)
-
----
-
-### Issue 6: Chapter 14 (AI Declaration) Appears Twice
-
-**Problem**: Looking at your RMD structure, "Generative AI Declaration & Guidelines" appears at line 1157 AND potentially as a separate consideration. The individual reflections (Chapter 13) come before the AI declaration, which is slightly odd structurally.
-
-**Fix**: Consider reordering to:
-1. Conclusions & Lessons Learned (Chapter 12)
-2. Generative AI Declaration (Chapter 13) 
-3. Individual Team Member Reflections (Chapter 14)
-4. Appendices
-
-This puts the formal declaration before the personal reflections, which flows better.
-
----
 
 ### Issue 7: Some HTML Line Breaks in RMarkdown
 
