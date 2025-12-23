@@ -424,20 +424,7 @@ to under 5 seconds.
 
 ---
 
-## 🎯 Low-Hanging Fruit (Quick Wins)
 
-### Quick Win 1: Add GitHub Link Visibility
-**Current**: GitHub link is in title page subtitle
-**Improvement**: Also mention it in the report body, perhaps in "System Access and Verification" section:
-
-```markdown
-All SQL scripts, ETL code, and documentation are version-controlled and 
-available at: https://github.com/dydy2010/dbm_project_ACID
-```
-
-This makes it more visible for evaluators who might miss the title page.
-
----
 
 ### Quick Win 2: Number Your Appendices Consistently
 
