@@ -5,20 +5,6 @@ This document identifies issues, improvements, and low-hanging fruit for Team AC
 ---
 
 ## 🚨 CRITICAL ISSUES
-
-### Critical Issue 1: Missing NoSQL Requirement
-
-### The Problem
-The project assignment explicitly requires NoSQL implementation in Section 6:
-- Connect Metabase to **both** SQL and NoSQL databases
-- Show interactive visualization for **both** SQL and NoSQL
-- Demonstrate that SQL and NoSQL outputs are **the same**
-
-Your report has **zero NoSQL content**. This is probably the biggest point deduction risk.
-
-### The Solution: MongoDB (Easiest Option)done
-
-
 ### Critical Issue 2: Missing Parameterized Queries in Metabase
 
 **The Problem**
@@ -410,17 +396,6 @@ These three approaches reduced query execution time from several minutes
 to under 5 seconds.
 ```
 
----
-
-
-### Issue 7: Some HTML Line Breaks in RMarkdown
-
-**Problem**: You use `<br>` tags in several places (e.g., lines 1024, 1026, 1033, 1049). These work but are not ideal for PDF output.
-
-**Fix**: Replace `<br>` with either:
-- Two spaces at end of line + newline (for soft break)
-- Blank line (for paragraph break)
-- `\newline` or `\vspace{0.3cm}` for LaTeX-style breaks in PDF
 
 ---
 
