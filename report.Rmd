@@ -236,6 +236,21 @@ Several foreign-key relationships are intentionally optional to reflect real cha
 
 By modelling these relationships as optional, the ERD mirrors the true structure and limitations of the underlying open data and avoids enforcing artificial or incorrect mappings.
 
+### Physical-Conceptual Schema Matching
+
+The following table shows how each conceptual entity maps to its physical implementation in MySQL:
+
+| Conceptual Entity | Physical Table | Key Differences / Implementation Details |
+|-------------------|----------------|------------------------------------------|
+| CountingSite | `CountingSite` | `axis` column dropped due to consistent inconsistency |
+| MeasurementSite | `MeasurementSite` | Normalized 1:n relation to CountingSite |
+| TrafficMeasurement | `TrafficMeasurement` | Added surrogate key `traffic_measurement_id` |
+| Quarter | `Quarter` | `street_name` used as natural primary key |
+| Population | `Population` | No surrogate key; uses composite natural key |
+| Sex | `Sex` | Lookup table extracted from population attributes |
+| Origin | `Origin` | Lookup table extracted from population attributes |
+| TrafficSignal | `TrafficSignal` | Lookup table extracted from site metadata |
+
 
 # Key Performance Indicators (KPIs)
 
@@ -1039,7 +1054,7 @@ knitr::include_graphics("materials_for_report_later/FinalScreenShots/Top10Bottle
 - **Decision Recommendation for Client**: Investigate in to these areas, if the volume of peak-hour is not justified, some bottlenecks could be highway entrance, so that not all of them are really problematic.
 For unjustified volume cases, apply short-term interventions (signal optimization, traffic management) at flagged intersections immediately. To reduce peak concentration, consider expanding capacity of bus lanes or an adaptive traffic signal system.
 
-## KPI 3: Direcional Imbalances
+## KPI 3: Directional Imbalances
 
 - **Visual:** A breakdown of directional imbalance for major intersections.
 
@@ -1174,7 +1189,7 @@ For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrass
 
 # Generative AI Declaration & Guidelines
 
-Generative AI was used as a supplementary tool on top of the assisting material provided in the DBM lecture.
+Generative AI was used as a supplementary tool on top of the supporting material provided in the DBM lecture.
 
 ### Guidelines for Responsible and Effective Usage of Gen-AI
 1. **Human-in-the-loop verification:** All AI-suggested content was treated as a draft. Text, code, or sources delivered by AI had to be critically reviewed and tested before inclusion.
