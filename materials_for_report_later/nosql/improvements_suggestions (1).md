@@ -106,70 +106,22 @@ Update the text to say something like:
 > "Query execution time improved from **4 minutes 23 seconds** to **3.2 seconds** after optimization."
 
 ---
+### Suggestion 2: Add a Limitations Section
 
-## 📝 Writing & Formatting Improvements
-
-### Issue 4: Some Typos and Grammar Issues
-
-**Location**: Throughout, but especially in Section 11
-
-**Examples found**:
-- "infraestructure" → "infrastructure" (Section 11, KPI 2 decision recommendation)
-- "cpaacity" → "capacity" (same location)
-- "Direcional" → "Directional" (Section 11, KPI 3 header)
-- "assisting material" → "supporting material" (Chapter 14)
-
-**Fix**: Do a spell-check pass on the final PDF, or run the text through a grammar checker.
-
----
-
-### Issue 5: Inconsistent Capitalization
-
-**Problem**: Sometimes "Metabase" sometimes "metabase", sometimes "MySQL" sometimes "mysql"
-
-**Fix**: Search and replace to ensure consistent capitalization:
-- MySQL (always capitalized)
-- Metabase (always capitalized)  
-- SQL (always uppercase)
-- NoSQL (capital N, capital SQL)
-
----
----
-### Critical Issue 7: Missing Conceptual-to-Physical Schema Mapping
-
-**The Problem**
-
-The requirement states:
-> "Also show the **relationship between the conceptual model and the database schema**"
-
-You have an ERD (Figure 2) and DDL code in appendices, but you don't explicitly show HOW the conceptual entities map to physical tables - especially where they differ.
-
-**The Solution** (15 minutes):
-
-Add a mapping table in Section 4 after the ERD description:
+Academic reports benefit from acknowledging limitations. Consider adding to Chapter 12:
 
 ```markdown
-### Mapping: Conceptual Model to Physical Schema
+## Limitations
 
-The following table shows how conceptual entities from the ER diagram correspond 
-to physical database tables:
-
-| Conceptual Entity | Physical Table | Key Differences |
-|-------------------|----------------|-----------------|
-| CountingSite | `countingsite` | `axis` column dropped due to inconsistent values |
-| MeasurementSite | `measurementsite` | No changes |
-| TrafficMeasurement | `trafficmeasurement` | Added surrogate key `traffic_measurement_id` |
-| TrafficSignal | `trafficsignal` | No changes |
-| Quarter | `quarter` | `street_name` used as PK instead of composite key |
-| Population | `population` | No surrogate key (natural composite key) |
-| Sex | `sex` | Lookup table extracted from Population |
-| Origin | `origin` | Lookup table extracted from Population |
-
-**Key design decisions:**
-- Surrogate keys added to fact tables for efficient row identification
-- Lookup tables normalized from repeated categorical values
-- Some FK constraints not enforced for ETL performance (documented in code)
+- **Traffic data coverage**: Not all streets in Zurich have counting sites, 
+  requiring imputation for some quarters
+- **Temporal alignment**: Population data is quarterly while traffic data is 
+  hourly, requiring aggregation decisions
+- **Causality**: The Stress Index shows correlation between traffic and 
+  population growth but cannot prove causation
 ```
+
+This shows critical thinking and preempts evaluator questions.
 
 ---
 
@@ -222,60 +174,6 @@ This scenario illustrates how the KPI framework transforms raw traffic data into
 actionable budget decisions.
 ```
 
----
-
-### Critical Issue 5: Missing Fictitious User Scenario Walkthrough
-
-**The Problem**
-
-The requirement explicitly states:
-> "Demonstrate in a practical way how the visualization and the original use case are related: **Use a user to demonstrate** how the visualization improves a specific decision with data."
-> "The decision rule is **applied to a (fictitious) user** based on the key figure in order to positively influence a decision in the use case."
-
-Your report has generic "client recommendations" but no concrete user scenario showing step-by-step how someone would use the dashboard to make a decision.
-
-**The Solution** (20 minutes):
-
-Add a concrete scenario in Section 11 (Visualization):
-
-```markdown
-### Decision Scenario: Budget Allocation for District 2
-
-To demonstrate practical decision support, consider the following scenario:
-
-**User:** Maria Keller, Urban Planning Analyst at Stadt Zürich
-**Task:** Allocate CHF 5M infrastructure budget across districts
-
-**Step 1: Identify Problem Areas**
-Maria opens the Metabase dashboard and views the Stress Index Classification 
-(Figure X). She immediately sees District 2 (Enge) flagged as "Commuter Pressure" 
-with a Stress Index of +150.2%.
-
-[Screenshot: Dashboard showing District 2 highlighted]
-
-**Step 2: Apply Decision Rule**
-Based on the predefined decision rule:
-- Stress Index > +10% → High commuter pressure → Invest in inbound capacity
-
-**Step 3: Drill Down**
-Maria filters KPI 2 (Bottlenecks) to District 2 and identifies Brunaustrasse 
-as a peak-hour bottleneck (avg. 892 vehicles/hour at 17:00).
-
-[Screenshot: Filtered bottleneck view]
-
-**Step 4: Decision**
-Maria recommends:
-- Short-term: Signal optimization at Brunaustrasse intersection (CHF 200K)
-- Long-term: Park-and-ride facility at district boundary (CHF 2M)
-
-This data-driven approach replaced subjective prioritization with quantifiable 
-metrics, improving budget allocation efficiency.
-```
-
-This satisfies the requirement for a fictitious user demonstration with specific dashboard interactions.
-
----
-
 ## ⚠️ Medium Priority Issues
 
 ### Issue 1: No Metabase Configuration Screenshot
@@ -312,62 +210,6 @@ You have both an ERD (conceptual) and DDL (physical), but you don't explicitly s
 Add a subsection in Chapter 4 after the ERD:
 
 ```markdown
-### Mapping from Conceptual Model to Physical Schema
-
-The following table shows how each conceptual entity maps to its physical 
-implementation in MySQL:
-
-| Conceptual Entity | Physical Table | Key Differences |
-|-------------------|----------------|-----------------|
-| CountingSite | countingsite | `axis` column dropped due to inconsistent values |
-| MeasurementSite | measurementsite | No changes |
-| TrafficMeasurement | trafficmeasurement | Added surrogate key `traffic_measurement_id` |
-| Quarter | quarter | `street_name` used as natural primary key |
-| Population | population | No surrogate key; composite natural key |
-| Sex | sex | Lookup table extracted from population |
-| Origin | origin | Lookup table extracted from population |
-| TrafficSignal | trafficsignal | No changes |
-
-The physical schema closely follows the conceptual model, with minor adjustments 
-for performance (surrogate keys) and data quality (dropped columns).
-```
-
----
-
-### Critical Issue 6: Missing Explicit SQL Keyword Count
-
-**The Problem**
-
-The requirement states:
-> "The SQL query should contain at least **8 different keywords**"
-
-Your queries clearly use many keywords (SELECT, FROM, JOIN, WHERE, GROUP BY, ORDER BY, CASE, WHEN, WITH, SUM, AVG, ROW_NUMBER, OVER, PARTITION BY, etc.) but you **never explicitly list or count them** to show you meet the requirement.
-
-**The Solution** (10 minutes):
-
-Add a brief note in Section 7 (Analyzing & Evaluating Data) after presenting a complex query:
-
-```markdown
-### SQL Complexity Analysis
-
-The KPI queries demonstrate appropriate complexity by utilizing the following 
-SQL keywords and constructs:
-
-1. **SELECT** - attribute selection
-2. **FROM** - table specification  
-3. **JOIN** - table combination (INNER JOIN, LEFT JOIN)
-4. **WHERE** - row filtering with SARGable predicates
-5. **GROUP BY** - aggregation grouping
-6. **ORDER BY** - result sorting
-7. **CASE/WHEN** - conditional logic for classification
-8. **WITH** (CTE) - common table expressions for readability
-9. **SUM/AVG** - aggregate functions
-10. **ROW_NUMBER() OVER (PARTITION BY...)** - window functions
-11. **ROUND/CAST** - type conversion and formatting
-
-This exceeds the minimum requirement of 8 different keywords and demonstrates 
-proficiency with advanced SQL constructs including CTEs and window functions.
-```
 
 ---
 ### Issue 4: 3+ Optimization Approaches Not Clearly Listed
@@ -414,21 +256,7 @@ The `{-}` prevents numbering conflicts with main chapters.
 
 ---
 
-### Quick Win 3: Add a "How to Reproduce" Section
 
-**Why**: Evaluators appreciate being able to verify your work.
-
-**Add to Section 2.1.1 or as a new subsection**:
-```markdown
-### Reproduction Steps
-
-To reproduce the database and dashboards:
-
-1. Connect to the VM using the credentials provided on ILIAS
-2. Open MySQL Workbench and connect to `traffic_population_zh`
-3. Access Metabase at [URL] with the provided login
-4. SQL scripts are available in the GitHub repository under `/sql_scripts/`
-```
 
 ---
 
@@ -461,24 +289,7 @@ These numbers help evaluators understand the scale.
 
 ---
 
-### Suggestion 2: Add a Limitations Section
 
-Academic reports benefit from acknowledging limitations. Consider adding to Chapter 12:
-
-```markdown
-## Limitations
-
-- **Traffic data coverage**: Not all streets in Zurich have counting sites, 
-  requiring imputation for some quarters
-- **Temporal alignment**: Population data is quarterly while traffic data is 
-  hourly, requiring aggregation decisions
-- **Causality**: The Stress Index shows correlation between traffic and 
-  population growth but cannot prove causation
-```
-
-This shows critical thinking and preempts evaluator questions.
-
----
 
 ### Suggestion 3: Reference the OECD Data Value Cycle More
 
