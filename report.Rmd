@@ -61,6 +61,14 @@ The database system was deployed on the university-hosted Windows virtual machin
 
 All SQL scripts, ETL code, and documentation are version-controlled and available at: https://github.com/dydy2010/dbm_project_ACID
 
+### Metabase Connection Configuration
+
+Metabase was connected to the MySQL database using the settings shown below (password hidden). In our setup, Metabase connects to host `localhost` on port `3306`, using database name `traffic_population_zh` and username `root`.
+
+```{r metabase_configuration, echo=FALSE, fig.cap="Metabase database connection configuration (password hidden)", fig.align='center', out.width='90%', fig.pos='H'}
+knitr::include_graphics("materials_for_report_later/screenshots/metabase_configuration.png")
+```
+
 # Dataset & Preprocessing
 
 ## Data Overview
@@ -884,10 +892,20 @@ knitr::include_graphics("materials_for_report_later/screenshots/views.png")
 ```
 
 While these views are correct from a data modelling perspective and provide a complete analytical foundation for the defined KPIs, they proved to be computationally expensive in practice. Query execution times were high, as MySQL had to perform multiple joins across large base tables, including millions of hourly traffic records—before applying yearly aggregations. As a result, direct use of these views was not suitable for interactive analysis and rapid iteration in BI tools, motivating the optimization step coming next.
-
 # Query Performance Optimization for Metabase & Database
 
 While building the KPIs it was quickly noticed that runtime is long on the largest traffic views, and related views, ranging from 2-10 minutes for one view query. Following the guidelines from the SQL Performance lecture, we created an optimized version of the SQL views that helps with re-execution of SQL scripts and Metabase operations.
+
+## Before vs After Optimization
+
+The optimization process achieved significant performance improvements.
+
+*   **Before Optimization**: Execution times ranged from **2 to 10 minutes** per view. Non-SARGable predicates caused full table scans on 21M+ rows, making direct query use in Metabase unsuitable for interactive analysis.
+*   **After Optimization**: View execution times reduced to **seconds**. Targeted indexes and SARGable rewrites enabled efficient index-based access paths. Materialized tables were added as a final layer to allow instant dashboard filtering.
+
+    ```{r index_runtime_screenshot_kpi1, echo=FALSE, fig.pos="H", out.width="100%", fig.cap="After Optimization: Execution log showing view creation times reduced to seconds (e.g., v\\_kpi1\\_quarter\\_stress\\_index\\_new)."}
+    knitr::include_graphics("materials_for_report_later/screenshots/time_runned_efficient_index_script.png")
+    ```
 
 ## Original Scripts Problem Diagnosis
 
@@ -897,11 +915,77 @@ While building the KPIs it was quickly noticed that runtime is long on the large
 
 In line with the course guidelines, performance-critical queries were deliberately restricted to relevant subsets of the data using explicit `WHERE` filters (e.g. limiting traffic measurements to the years 2023–2025 instead of processing the full time range). This reduction of the processed data volume was essential to make index-based optimizations effective, as indexing provides limited benefit when queries scan the entire table.
 
+## Actions Taken
+
+1. **Created targeted indexes**:
+
+    ```sql
+    CREATE INDEX idx_tm_measurement_site_id
+        ON TrafficMeasurement (measurement_site_id);
+    
+    CREATE INDEX idx_tm_timestamp
+        ON TrafficMeasurement (timestamp);
+    ```
+    These two lines (run once) already drastically reduce the query time for the views, like in above screenshot shows.
+    
+    ```
+
+2. **Rewrote the heavy views with SARGable predicates** (see Appendix F):
+   - `v_traffic_yearly.sql`
+   - `v_traffic_city_yearly.sql`
+   - `v_kpi2_bottlenecks.sql`
+   - `v_kpi3_dominant_direction.sql`
+
+   Example (KPI 2 bottlenecks):
+   ```sql
+   WHERE tm.timestamp >= '2023-01-01'
+     AND tm.timestamp <  '2026-01-01'
+   ```
+   Replacing `YEAR(tm.timestamp)` with a date range lets MySQL use the timestamp index.
+
+3. **Explanation helper**
+   To verify that the defined indexes are effectively used, `EXPLAIN` statements were executed for all KPI-related views as well as for the underlying base aggregation. The execution plans show indexed access paths such as `range` or `ref`, rather than full table scans (`ALL`), confirming that the queries benefit from the applied indexing strategy.
+
+   For example, the following statement was used to analyse the execution plan of the KPI3 view:
+
+   ```sql
+   EXPLAIN SELECT *
+   FROM v_kpi3_dominant_direction
+   LIMIT 10;
+   ```
+
+4. **Materialized Aggregation Tables**
+   While targeted indexing and SARGable query rewrites significantly improved SQL execution times, this optimization alone proved insufficient for interactive BI usage in Metabase. Several KPI views still required minute-level execution times when used as the basis for charts, filters, and dashboard interactions, especially when Metabase repeatedly re-executed queries during visualization rendering.
+
+   To address this limitation, we introduced materialized aggregation tables for the most performance-critical metrics. Instead of querying the full traffic table (~21 million rows) on each dashboard interaction, the core yearly and site-level aggregations are now precomputed and persisted in dedicated tables. Metabase queries therefore operate exclusively on these reduced, pre-aggregated datasets.
+
+   An example of one of the materialized tables (see Appendix F for full scripts):
+
+   ```sql
+   CREATE TABLE traffic_city_yearly_mat (
+       year INT NOT NULL,
+       avg_vehicle_count_city DECIMAL(12,2) NOT NULL,
+       PRIMARY KEY (year)
+   );
+   ```
+
+   ```sql
+   INSERT INTO traffic_city_yearly_mat
+   SELECT
+       YEAR(tm.timestamp) AS year,
+       CAST(AVG(tm.vehicle_count) AS DECIMAL(12,2)) AS avg_vehicle_count_city
+   FROM trafficmeasurement tm
+   WHERE tm.timestamp >= '2012-01-01'
+     AND tm.timestamp <  '2026-01-01'
+   GROUP BY YEAR(tm.timestamp);
+   ```
+   The aggregated city-level traffic indicator is stored using a fixed-point `DECIMAL(12,2)` data type to avoid floating-point rounding artefacts and to ensure stable, reproducible values for Metabase visualisations. Date filters were rewritten using intervals (`>= start_date and < end_date`) instead of `BETWEEN` to avoid boundary ambiguities and to ensure index-friendly, SARGable predicates.
+
 ## Execution Plan Analysis
 
 To validate the identified performance issues and to assess the effect of the applied optimizations, execution plans were analysed using the **Visual EXPLAIN** feature in MySQL Workbench.
 
-The following query represents the core aggregation logic used for KPI 2 and was used to generate the Visual EXPLAIN shown below:
+The following query represents the core aggregation logic used for KPI 2 and was used to generate the Visual EXPLAIN shown below. **Note that this query is shown in its optimized (SARGable) form; the original view used `YEAR(tm.timestamp)`.**
 
 ```sql
 SELECT
@@ -918,7 +1002,7 @@ WHERE tm.timestamp >= '2023-01-01'
 GROUP BY cs.counting_site_id, HOUR(tm.timestamp);
 ```
 
-Prior to optimization, the query structure (most notably the use of non-SARGable predicates such as `YEAR(timestamp)`) prevented effective index usage. For large fact tables like `TrafficMeasurement`, this typically forces the MySQL optimizer to fall back to a full table scan (type = ALL), which explains the previously observed execution times of several minutes.
+Prior to optimization, the query structure (most notably the use of non-SARGable predicates such as `YEAR(timestamp)`) prevented effective index usage. For large fact tables like `TrafficMeasurement`, this typically forces the MySQL optimizer to fall back to a full table scan (type = ALL), which explains the previously observed execution times of several minutes. *(A Visual EXPLAIN screenshot for the unoptimized version was not captured, but the known behavior of non-SARGable predicates on large tables confirms the necessity of this optimization.)*
 
 After introducing targeted indexes and rewriting time-based filters to be SARGable, the execution plan changed substantially. The Visual EXPLAIN output confirms that full table scans are avoided on the TrafficMeasurement table. Instead, the optimizer uses indexed key lookups (via idx_tm_composite) combined with nested-loop joins on small intermediate result sets. Although a temporary table is still required for the final GROUP BY aggregation, data access is now restricted to indexed subsets of the table.
 
@@ -928,91 +1012,23 @@ Overall, the execution plan analysis confirms that the applied optimizations sig
 knitr::include_graphics("materials_for_report_later/screenshots/visual_explain.png")
 ```
 
-
-## Actions Taken
-
-1. **Created targeted indexes**:
-
-    ```sql
-    CREATE INDEX idx_tm_measurement_site_id
-        ON TrafficMeasurement (measurement_site_id);
-    
-    CREATE INDEX idx_tm_timestamp
-        ON TrafficMeasurement (timestamp);
-    ```
-These two lines (run once) already bring query time from minutes to seconds.
-
-2. **Rewrote the heavy views with SARGable predicates** (see Appendix F):
-   - `v_traffic_yearly.sql`
-   - `v_traffic_city_yearly.sql`
-   - `v_kpi2_bottlenecks.sql`
-   - `v_kpi3_dominant_direction.sql`
-
-   Example (KPI 2 bottlenecks):
-   ```sql
-   WHERE tm.timestamp >= '2023-01-01'
-     AND tm.timestamp <  '2026-01-01'
-   ```
-   Replacing `YEAR(tm.timestamp)` with a date range lets MySQL use the timestamp index.
-
-3. **Explanation helper**
-To verify that the defined indexes are effectively used, `EXPLAIN` statements were executed for all KPI-related views as well as for the underlying base aggregation. The execution plans show indexed access paths such as `range` or `ref`, rather than full table scans (`ALL`), confirming that the queries benefit from the applied indexing strategy.
-
-For example, the following statement was used to analyse the execution plan of the KPI3 view:
-
-```sql
-EXPLAIN SELECT *
-FROM v_kpi3_dominant_direction
-LIMIT 10;
-```
-
-## Result
+## Optimization Outcomes
 
 - Re-execution of script for views in database now refresh within a few seconds, because every KPI view hits indexed columns or pre-aggregated rows.
 - The optimization package is reproducible: run the index script, rerun the four optimized views, then sync Metabase.
 - All scripts are documented in git repository and appendix.
 
-```{r index_runtime_screenshot, echo=FALSE, fig.pos="H", out.width="100%", fig.cap="MySQL Workbench action log while creating the new indexes. Even on the full dataset the statements finish within seconds, which validates the low overhead of the optimization step."}
-knitr::include_graphics("materials_for_report_later/screenshots/time_runned_efficient_index_script.png")
-```
-
-## Materialized Aggregation Tables
-
-While targeted indexing and SARGable query rewrites significantly improved SQL execution times, this optimization alone proved insufficient for interactive BI usage in Metabase. Several KPI views still required minute-level execution times when used as the basis for charts, filters, and dashboard interactions, especially when Metabase repeatedly re-executed queries during visualization rendering.
-
-To address this limitation, we introduced materialized aggregation tables for the most performance-critical metrics. Instead of querying the full traffic table (~21 million rows) on each dashboard interaction, the core yearly and site-level aggregations are now precomputed and persisted in dedicated tables. Metabase queries therefore operate exclusively on these reduced, pre-aggregated datasets.
-
-An example of one of the materialized tables (see Appendix F for full scripts):
-
-```sql
-CREATE TABLE traffic_city_yearly_mat (
-    year INT NOT NULL,
-    avg_vehicle_count_city DECIMAL(12,2) NOT NULL,
-    PRIMARY KEY (year)
-);
-```
-
-```sql
-INSERT INTO traffic_city_yearly_mat
-SELECT
-    YEAR(tm.timestamp) AS year,
-    CAST(AVG(tm.vehicle_count) AS DECIMAL(12,2)) AS avg_vehicle_count_city
-FROM trafficmeasurement tm
-WHERE tm.timestamp >= '2012-01-01'
-  AND tm.timestamp <  '2026-01-01'
-GROUP BY YEAR(tm.timestamp);
-```
-The aggregated city-level traffic indicator is stored using a fixed-point `DECIMAL(12,2)` data type to avoid floating-point rounding artefacts and to ensure stable, reproducible values for Metabase visualisations. Date filters were rewritten using intervals (`>= start_date and < end_date`) instead of `BETWEEN` to avoid boundary ambiguities and to ensure index-friendly, SARGable predicates.
 
 # Visualization & Decision Support
 
-The final layer of the project is the delivery of actionable insights through an interactive Metabase dashboard. By connecting Metabase to the materialized tables, we allow urban planners to explore the data dynamically without writing SQL code.
+The final layer of the project is the delivery of actionable insights through an **interactive Metabase** dashboard. By connecting Metabase to the materialized tables, we allow urban planners to explore the data dynamically without writing SQL code.
 
 ```{r dashboard_view_final, fig.cap="Dashboard View", fig.align='center', out.width='100%', fig.pos='H'}
-knitr::include_graphics("materials_for_report_later/FinalScreenShots/DashboardView.png")
+knitr::include_graphics("materials_for_report_later/screenshots/dashboard_with_filter.png")
 ```
 
-The Metabase Dashboard is designed to visualize the core questions & insights defined in our KPI framework. It is divided into three visual topics:
+The Metabase Dashboard is designed to visualize the core questions & insights defined in our KPI framework. With the **quarter filter** user can **interactively** see the related quarter data and visuals.
+It is divided into **three visual topics**:
 
 ## Citywide Overview (KPI 0)
 This dual-axis chart compares the total population growth with the average traffic intensity across Zurich from 2012 to 2025.
@@ -1072,7 +1088,7 @@ We implemented a NoSQL integration using MongoDB. This step fulfilled the projec
 
 ### Data Migration Strategy
 
-Instead of reimplementing the database in MongoDB, we mad use of our finalized SQL data model to **Extract** the verification datasets and imported into MongoDB.
+Instead of reimplementing the database in MongoDB, we made use of our finalized SQL data model to **Extract** the verification datasets and imported into MongoDB.
 
 **Workflow:**
 
@@ -1145,13 +1161,19 @@ For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrass
 - **Use of Artificial Intelligence in Database Work:**  
   Since MySQL and Metabase do not provide native AI support, we used external, web-based generative AI tools to assist with SQL formulation, debugging, and documentation. While this was helpful, limitations in context awareness became apparent. In future projects, we could explore more integrated AI-assisted workflows to improve efficiency and contextual understanding.
 
+## Limitations
+
+One limitation of our analysis is that some records could not be fully assigned to a clear geographic unit (quarter or district) due to missing or "unknown" values in the source data. This reduces coverage for some areas and can slightly bias KPI comparisons.
+
+In a follow-up project, we could improve completeness by enriching the dataset with additional open data sources and by applying statistical or machine-learning based imputation methods. However, since this is a focused database project, we decided not to implement advanced imputation.
+
 # Individual Team Member Reflections
 
  **Ramiro Díez-Liébana**
 
 - **Real-World Data**: I learned that messy, especially sensor data demands flexible solutions beyond standard cleaning steps. Manual street name mappings and complex addresses taught me that automation has limits when dealing with inconsistent real-world datasets.
 
-- **Metabase  Data  Insights**: I liked that Metabase's features, although open-source, work great translating our SQL queries into intuitive visualization tools for urban planners. You an create deep visuals, without need of prior experience. Loading power however was a bit limited, with bigger projects taking longer and being more cumbersome to work with.
+- **Metabase  Data  Insights**: I liked that Metabase's features, although open-source, work great translating our SQL queries into intuitive visualization tools for urban planners. You can create deep visuals, without need of prior experience. Loading power however was a bit limited, with bigger projects taking longer and being more cumbersome to work with.
 
 - **Concurrent Database Access**: I learned that MySQL's single-connection constraint created some limitations when several people worked on the database, requiring being extra careful to avoid being disconnected mid-query. Additionally, deletes reminded me that database relationships create some dependencies: removing  data could unexpectedly affect downstream tables.
 
@@ -1187,7 +1209,15 @@ For example, **Brunaustrasse (85% dominance toward Enge)** and **Hottingerstrass
 
 - **Efficient Process:** That willingness to challenge each other's thinking while staying collaborative made for an efficient and productive process overall.
 
-# Generative AI Declaration & Guidelines
+# References
+
+- City of Zurich Open Data: *Bevölkerung nach Monat, Stadtquartier, Geschlecht, Altersgruppe und Herkunft* (population per month by city quarter, sex, age group, and origin). <https://miro.com/app/board/uXjVJuBJnN8=/?moveToWidget=3458764643324310209&cot=14>
+
+- City of Zurich Open Data: *Daten der Verkehrszählung zum motorisierten Individualverkehr (Stundenwerte), seit 2012* (motorised traffic counts, hourly values, since 2012). <https://data.stadt-zuerich.ch/dataset/sid_dav_verkehrszaehlung_miv_od2031/resource/c1855626-88e1-4d48-99c8-00b049aae900>
+
+- City of Zurich Open Data: *Geo-Adressen Stadt Zürich* (address reference dataset used for spatial linking). <https://data.stadt-zuerich.ch/dataset/geo_adressen_stadt_zuerich>
+
+# Generative AI Declaration & Guidelines {-}
 
 Generative AI was used as a supplementary tool on top of the supporting material provided in the DBM lecture.
 
@@ -1210,7 +1240,9 @@ AI-based assistants were applied in the following specific cases:
 
 \newpage
 
-# Appendix A: Traffic Data – Complete ETL Script
+\addtocontents{toc}{\protect\setcounter{tocdepth}{1}}
+
+# Appendix A: Traffic Data – Complete ETL Script {-}
 
 This appendix contains the full SQL workflow used to load, clean, transform, and normalize the traffic dataset.  
 The process consists of three stages:
@@ -1428,7 +1460,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 DROP TABLE stg_traffic_data;
 ```
 
-# Appendix B: Quarter Data – Complete ETL Script
+# Appendix B: Quarter Data – Complete ETL Script {-}
 
 This appendix contains the complete SQL workflow used to load, clean, deduplicate and transform the quarter‐level geographic dataset.
 
@@ -1520,7 +1552,7 @@ GROUP BY street_name;
 DROP TABLE stg_quarter_data;
 ```
 
-# Appendix C: Population Data – Complete ETL Script
+# Appendix C: Population Data – Complete ETL Script {-}
 
 This appendix documents the full SQL workflow for loading and transforming the population dataset. The ETL process follows the standard structure used throughout the project:
 
@@ -1617,7 +1649,7 @@ WHERE STR_TO_DATE(reference_date_year, '%Y-%m-%d') >= '2012-01-01';
 DROP TABLE stg_population_data;
 ```
 
-# Appendix D: Lookup Tables – Complete ETL Script
+# Appendix D: Lookup Tables – Complete ETL Script {-}
 
 This appendix documents the workflow for extracting clean lookup values for `Sex` and `Origin` from the population dataset.  
 The ETL process consists of:
@@ -1746,7 +1778,7 @@ ADD CONSTRAINT fk_population_origin
 DROP TABLE stg_population_lookup;
 ```
 
-# Appendix E: Full SQL Logic for Stress Index (KPI 1)
+# Appendix E: Full SQL Logic for Stress Index (KPI 1) {-}
 
 ```sql
 CREATE OR REPLACE VIEW v_kpi1_quarter_stress_index_new AS
@@ -1935,7 +1967,7 @@ FROM ranked
 ORDER BY district_id, quarter_name;
 ```
 
-# Appendix F: Efficiency & Query Performance Scripts
+# Appendix F: Efficiency & Query Performance Scripts {-}
 
 This appendix collects the SQL snippets used to speed up Metabase dashboards.  
 Each script lives in `sql scripts_optimized/` inside the repository so that future team members can rerun them before refreshing the dashboards.
