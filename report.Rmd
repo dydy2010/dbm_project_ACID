@@ -18,7 +18,7 @@ output:
     extra_dependencies: ["float"]
 fontsize: 11pt
 geometry: margin=1in
-knit: rmarkdown::render
+knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding, output_file = "DBM_Project_Team_ACID.pdf") })
 ---
 
 ```{r setup, include=FALSE}
