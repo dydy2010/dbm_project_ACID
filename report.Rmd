@@ -9,6 +9,7 @@ author: |
   \vspace{0.3cm}  
   \small GitHub: \url{https://github.com/dydy2010/dbm_project_ACID}
 date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output_file: "DBM_Project_Team_ACID.pdf"
 output:
   pdf_document:
     toc: true
