@@ -76,7 +76,7 @@ knitr::include_graphics("materials_for_report_later/screenshots/metabase_configu
 - Hourly **traffic count** data, **address** data (including city district and quarter) and **population** data from the City of Zurich’s open data portal was collected.
 - The raw datasets consisted of **multiple CSV files** (**2012–2025**).
 
-## Raw Dataset Columns: Traffic Data
+## Raw Dataset: Traffic Data
 
 | Field Group | Columns |
 |-------------|---------|
@@ -112,7 +112,7 @@ All fields describing the **measurement location**, the **measurement configurat
 - **vehicle_count**: The number of vehicles recorded during the hourly measurement interval.
 - **vehicle_count_status**: Indicates how the vehicle count was produced: "Measured", "Missing", or "Imputed".
 
-## Raw Dataset Columns: Quarters
+## Raw Dataset: Quarters
 
 The raw quarter dataset contained **address-level information** used by the City of Zurich for **administrative** and **statistical purposes**. The fields included:
 
@@ -157,7 +157,7 @@ These manual adjustments were essential to achieve a **fully joinable** set of s
 
 The cleaned quarter dataset provides the **geographic reference layer** used to integrate **traffic measurements** with **demographic information**.
 
-## Raw Dataset Columns: Population
+## Raw Dataset: Population
 
 The raw population dataset consisted of **quarterly demographic counts** published by the City of Zurich. The original fields included:
 
