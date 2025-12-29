@@ -235,7 +235,7 @@ The **Population** table contains **demographic counts** by **sex**, **origin**,
 
 Every population record references a sex and origin category (**mandatory**), while the link to a statistical quarter is **optional**. This reflects the presence of entries such as *“Unbekannt (Stadt Zürich)”*, which cannot be assigned to a specific spatial unit.
 
-### Optional Relationships (`--0--<`)
+### Optional Relationships
 
 Several **foreign-key relationships** are intentionally **optional** to reflect real characteristics of the source data:
 
@@ -1097,7 +1097,7 @@ Instead of reimplementing the database in MongoDB, we made use of our finalized 
 2.  **Load**: The dataset was imported into MongoDB, creating the collection `bottlenecks_analytics`.
 3.  **Verify**: Data types (Coordinates as Double, Volume as Integer) were verified during import to ensure schema correctness.
 
-### Visualization Comparison
+### Comparison of Visualizations
 
 We connected Metabase to the MongoDB instance and recreated the exact same "Bottleneck Map" visualization.
 
