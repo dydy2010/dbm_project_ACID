@@ -124,7 +124,7 @@ The raw quarter dataset contained **address-level information** used by the City
 | Area metrics | flaeche_real, flaeche_projektiert, flaeche_total |
 | Spatial coverage counts | anzahl_fla_real, anzahl_fla_projektiert |
 
-#### Cleaning and Transformation
+### Cleaning and Transformation
 
 To link **traffic data** with **geographic units**, the raw fields required several preprocessing steps:
 
@@ -132,7 +132,7 @@ To link **traffic data** with **geographic units**, the raw fields required seve
 
 - **Data-type normalisation**: `statistical_quarter` was normalised as a trimmed string. Inconsistent labels such as `"Schwamend.-Mitte"` were harmonised to `"Schwamendingen-Mitte"` to ensure joinability with the population dataset.
   
-#### Additional Standardisation for Street Name Matching
+### Additional Standardisation for Street Name Matching
 
 To ensure that traffic measurement locations could be linked reliably to the quarter dataset, several street names from the traffic dataset required manual standardisation. While most addresses were harmonised through regex-based cleaning, a small number of street names contained compound forms that could not be resolved automatically (e.g., combined street names, hyphenated patterns, or slash-separated names). These were corrected manually to create a consistent set of street identifiers.
 
@@ -147,7 +147,7 @@ Additionally, several counting site names referred to non-street features such a
 
 These manual adjustments were essential to achieve a **fully joinable** set of street names between the **traffic** and **quarter** datasets and ensured that **all counting sites** could be assigned to a **statistical quarter**.
 
-#### Cleaned Quarter Dataset Columns
+### Cleaned Quarter Dataset Columns
 
 - **address**: Original full address as provided in the raw data.
 - **house_number**: Extracted house number component (kept for completeness).
@@ -170,7 +170,7 @@ The raw population dataset consisted of **quarterly demographic counts** publish
 | Publication metadata | DatenstandCd, DatenstandLang |
 | Population measure | AnzBestWir |
 
-#### Cleaning and Transformation
+### Cleaning and Transformation
 
 To prepare the dataset for integration and analysis, several cleaning and normalisation steps were performed:
 
@@ -179,7 +179,7 @@ To prepare the dataset for integration and analysis, several cleaning and normal
 - **Category translation and code preservation**: German labels for **sex** and **origin** (e.g., `"männlich"`, `"weiblich"`, `"Schweizer*in"`, `"Ausländer*in"`) were **translated to English**. The numeric codes (`SexCd`, `HerkunftCd`) were **preserved** and renamed to `sex_code` and `origin_code`, as these form **stable keys** for later relational integration.
 - **Data-type normalisation**: `QuarLang` was cleaned and normalised (**whitespace trimming**, **harmonisation of abbreviations**), then renamed to `statistical_quarter`.
 
-#### Cleaned Population Dataset Columns
+### Cleaned Population Dataset Columns
 
 - **reference_date_year**: Year of the population count, extracted from the quarterly reference date.
 - **sex_code**: Numeric code representing the sex category.
